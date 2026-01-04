@@ -1121,6 +1121,34 @@ body {
     color: var(--text-primary);
 }
 
+.agent-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+    font-family: var(--font-mono);
+    margin-top: var(--space-sm);
+    padding-top: var(--space-sm);
+    border-top: 1px solid var(--border-color);
+}
+
+.agent-lines {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+.lines-added {
+    color: var(--status-low);
+}
+
+.lines-removed {
+    color: var(--status-critical);
+}
+
+.agent-velocity {
+    color: var(--text-dim);
+}
+
 .agent-last-seen {
     font-size: 0.65rem;
     color: var(--text-dim);

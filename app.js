@@ -985,6 +985,13 @@ function renderAgentGrid(agents) {
         const statusClass = getAgentStatusClass(agent);
         const statusLabel = getAgentStatusLabel(agent);
         const totalTokens = (agent.total_input_tokens || 0) + (agent.total_output_tokens || 0);
+        const linesAdded = agent.total_lines_added || 0;
+        const linesRemoved = agent.total_lines_removed || 0;
+
+        // Calculate velocity (lines changed per hour based on total_duration_ms)
+        const durationHours = (agent.total_duration_ms || 0) / (1000 * 60 * 60);
+        const totalLines = linesAdded + linesRemoved;
+        const velocity = durationHours > 0 ? Math.round(totalLines / durationHours) : 0;
 
         return `
             <div class="agent-card ${statusClass}">
@@ -1006,6 +1013,13 @@ function renderAgentGrid(agents) {
                         <span class="stat-label">TOTAL</span>
                         <span class="stat-value">${formatTokens(totalTokens)}</span>
                     </div>
+                </div>
+                <div class="agent-meta">
+                    <span class="agent-lines">
+                        <span class="lines-added">+${linesAdded}</span>
+                        <span class="lines-removed">-${linesRemoved}</span>
+                    </span>
+                    <span class="agent-velocity">${velocity} Δ/hr</span>
                 </div>
                 <div class="agent-footer">
                     <span class="agent-last-seen">Last seen: ${formatTimeAgo(agent.last_seen)}</span>
