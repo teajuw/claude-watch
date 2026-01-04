@@ -70,8 +70,8 @@ Add these secrets:
 | `CLAUDE_ACCESS_TOKEN` | Your access token |
 | `CLAUDE_REFRESH_TOKEN` | Your refresh token |
 | `CLAUDE_TOKEN_EXPIRES_AT` | The expiresAt timestamp |
-| `TELEGRAM_BOT_TOKEN` | `8448374682:AAHtILgwkgVXZk1w862T1OAbNF1Up9mHL5M` |
-| `TELEGRAM_CHAT_ID` | `8476903521` |
+| `TELEGRAM_BOT_TOKEN` | (optional) Your bot token from @BotFather |
+| `TELEGRAM_CHAT_ID` | (optional) Your chat ID |
 
 ### 5. Update the dashboard config
 
