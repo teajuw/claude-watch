@@ -246,6 +246,26 @@ body {
     font-size: 0.75rem;
 }
 
+/* Tier Indicator */
+.tier-indicator {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-md);
+    font-size: 0.875rem;
+}
+
+.tier-label {
+    color: var(--text-dim);
+}
+
+.tier-value {
+    color: var(--claude-orange);
+    font-weight: 600;
+    border: 1px solid var(--claude-orange-dim);
+    padding: 2px 8px;
+}
+
 /* Quip Container */
 .quip-container {
     background: var(--bg-card);
@@ -885,13 +905,14 @@ body {
     justify-content: space-between;
     align-items: center;
     margin-bottom: var(--space-lg);
+    padding: var(--space-sm) 0;
+    border-top: 1px solid var(--claude-orange-dim);
     border-bottom: 1px solid var(--claude-orange-dim);
-    padding-bottom: var(--space-sm);
 }
 
 .tab-buttons {
     display: flex;
-    gap: var(--space-md);
+    gap: var(--space-sm);
 }
 
 .tab-actions {
@@ -916,23 +937,23 @@ body {
 
 .tab-btn {
     background: transparent;
-    border: none;
+    border: 1px solid transparent;
     color: var(--text-dim);
     font-family: inherit;
     font-size: 0.875rem;
     cursor: pointer;
-    padding: var(--space-sm) var(--space-md);
-    transition: color 0.2s ease;
+    padding: var(--space-xs) var(--space-sm);
+    transition: all 0.2s ease;
 }
 
 .tab-btn:hover {
     color: var(--text-primary);
+    border-color: var(--text-dim);
 }
 
 .tab-btn.active {
     color: var(--claude-orange);
-    border-bottom: 2px solid var(--claude-orange);
-    margin-bottom: -1px;
+    border-color: var(--claude-orange);
 }
 
 .tab-content {

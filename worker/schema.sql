@@ -52,20 +52,43 @@ CREATE TABLE IF NOT EXISTS agent_metrics (
     session_id TEXT,
     input_tokens INTEGER DEFAULT 0,
     output_tokens INTEGER DEFAULT 0,
+    model_id TEXT,
+    duration_ms INTEGER DEFAULT 0,
+    lines_added INTEGER DEFAULT 0,
+    lines_removed INTEGER DEFAULT 0,
+    cache_write INTEGER DEFAULT 0,
+    cache_read INTEGER DEFAULT 0,
+    context_pct INTEGER DEFAULT 0,
+    cost_usd REAL DEFAULT 0,
     timestamp TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_agent_metrics_agent_id ON agent_metrics(agent_id);
 CREATE INDEX IF NOT EXISTS idx_agent_metrics_timestamp ON agent_metrics(timestamp);
+CREATE INDEX IF NOT EXISTS idx_agent_metrics_agent_project ON agent_metrics(agent_id, project);
 
--- Agent status (tracks active/idle state)
+-- Agent status (tracks active/idle state per agent:project)
 CREATE TABLE IF NOT EXISTS agent_status (
-    agent_id TEXT PRIMARY KEY,
-    project TEXT,
+    agent_id TEXT NOT NULL,
+    project TEXT NOT NULL,
     last_seen TEXT,
     status TEXT DEFAULT 'active',
     total_input_tokens INTEGER DEFAULT 0,
-    total_output_tokens INTEGER DEFAULT 0
+    total_output_tokens INTEGER DEFAULT 0,
+    total_lines_added INTEGER DEFAULT 0,
+    total_lines_removed INTEGER DEFAULT 0,
+    total_duration_ms INTEGER DEFAULT 0,
+    session_count INTEGER DEFAULT 0,
+    PRIMARY KEY (agent_id, project)
 );
+
+-- Rate limit events (tracks when user hits 100%)
+CREATE TABLE IF NOT EXISTS rate_limit_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    window_type TEXT NOT NULL,
+    utilization REAL NOT NULL,
+    timestamp TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_rate_limit_timestamp ON rate_limit_events(timestamp);
 
 -- Insert default config
 INSERT OR IGNORE INTO config (key, value) VALUES ('thresholds', '[50, 75, 90]');

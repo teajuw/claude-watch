@@ -12,7 +12,22 @@ import { corsHeaders } from '../utils/cors';
 export async function handleAgentHeartbeat(request, env) {
   try {
     const body = await request.json();
-    const { agent_id, project, session_id, input_tokens, output_tokens, timestamp } = body;
+    const {
+      agent_id,
+      project,
+      session_id,
+      input_tokens,
+      output_tokens,
+      model_id,
+      duration_ms,
+      lines_added,
+      lines_removed,
+      cache_write,
+      cache_read,
+      context_pct,
+      cost_usd,
+      timestamp
+    } = body;
 
     // Validate required fields
     if (!agent_id || !timestamp) {
@@ -25,41 +40,65 @@ export async function handleAgentHeartbeat(request, env) {
       });
     }
 
-    // Insert into agent_metrics table
+    // Insert into agent_metrics table with all fields
     await env.DB.prepare(`
-      INSERT INTO agent_metrics (agent_id, project, session_id, input_tokens, output_tokens, timestamp)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO agent_metrics (
+        agent_id, project, session_id, input_tokens, output_tokens,
+        model_id, duration_ms, lines_added, lines_removed,
+        cache_write, cache_read, context_pct, cost_usd, timestamp
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       agent_id,
       project || 'unknown',
       session_id || 'unknown',
       input_tokens || 0,
       output_tokens || 0,
+      model_id || 'unknown',
+      duration_ms || 0,
+      lines_added || 0,
+      lines_removed || 0,
+      cache_write || 0,
+      cache_read || 0,
+      context_pct || 0,
+      cost_usd || 0,
       timestamp
     ).run();
 
-    // Update agent_status (upsert)
+    // Update agent_status (upsert with composite key agent_id + project)
     await env.DB.prepare(`
-      INSERT INTO agent_status (agent_id, project, last_seen, status, total_input_tokens, total_output_tokens)
-      VALUES (?, ?, ?, 'active', ?, ?)
-      ON CONFLICT(agent_id) DO UPDATE SET
-        project = excluded.project,
+      INSERT INTO agent_status (
+        agent_id, project, last_seen, status,
+        total_input_tokens, total_output_tokens,
+        total_lines_added, total_lines_removed,
+        total_duration_ms, session_count
+      )
+      VALUES (?, ?, ?, 'active', ?, ?, ?, ?, ?, 1)
+      ON CONFLICT(agent_id, project) DO UPDATE SET
         last_seen = excluded.last_seen,
         status = 'active',
         total_input_tokens = total_input_tokens + excluded.total_input_tokens,
-        total_output_tokens = total_output_tokens + excluded.total_output_tokens
+        total_output_tokens = total_output_tokens + excluded.total_output_tokens,
+        total_lines_added = total_lines_added + excluded.total_lines_added,
+        total_lines_removed = total_lines_removed + excluded.total_lines_removed,
+        total_duration_ms = total_duration_ms + excluded.total_duration_ms,
+        session_count = session_count + 1
     `).bind(
       agent_id,
       project || 'unknown',
       timestamp,
       input_tokens || 0,
-      output_tokens || 0
+      output_tokens || 0,
+      lines_added || 0,
+      lines_removed || 0,
+      duration_ms || 0
     ).run();
 
     return new Response(JSON.stringify({
       success: true,
       message: 'Heartbeat received',
       agent_id,
+      project,
     }), {
       headers: corsHeaders,
     });
@@ -78,7 +117,7 @@ export async function handleAgentHeartbeat(request, env) {
 
 /**
  * GET /api/agents
- * Returns list of all agents with their status
+ * Returns list of all agents with their status (per agent:project)
  */
 export async function handleAgentsList(request, env) {
   try {
@@ -90,9 +129,13 @@ export async function handleAgentsList(request, env) {
         status,
         total_input_tokens,
         total_output_tokens,
+        total_lines_added,
+        total_lines_removed,
+        total_duration_ms,
+        session_count,
         CASE
           WHEN datetime(last_seen) > datetime('now', '-5 minutes') THEN 'active'
-          WHEN datetime(last_seen) > datetime('now', '-1 hour') THEN 'idle'
+          WHEN datetime(last_seen) > datetime('now', '-30 minutes') THEN 'idle'
           ELSE 'inactive'
         END as computed_status
       FROM agent_status
