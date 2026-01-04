@@ -12,8 +12,8 @@ const CONFIG = {
     // GitHub raw URL for data branch
     // Format: https://raw.githubusercontent.com/{user}/{repo}/data/{file}
     dataBaseUrl: '', // Set during init
-    githubUser: 'YOUR_GITHUB_USERNAME',
-    githubRepo: 'claude-dashboard',
+    githubUser: 'teajuw',
+    githubRepo: 'claude-watch',
     refreshInterval: 60000, // 1 minute
     localMode: false, // Set via ?local=true for testing
 };
