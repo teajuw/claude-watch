@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Usage Terminal</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="scanlines"></div>
+    <div class="terminal">
+        <header class="terminal-header">
+<pre class="ascii-logo">
+   ██████╗██╗     █████╗ ██╗   ██╗██████╗ ███████╗
+  ██╔════╝██║     ██╔══██╗██║   ██║██╔══██╗██╔════╝
+  ██║     ██║     ███████║██║   ██║██║  ██║█████╗
+  ██║     ██║     ██╔══██║██║   ██║██║  ██║██╔══╝
+  ╚██████╗███████╗██║  ██║╚██████╔╝██████╔╝███████╗
+   ╚═════╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝
+                ╦ ╦ ╔═╗ ╔╦╗ ╔═╗ ╦ ╦
+                ║║║ ╠═╣  ║  ║   ╠═╣
+                ╚╩╝ ╩ ╩  ╩  ╚═╝ ╩ ╩
+</pre>
+            <div class="subtitle">[ Claude Max 5x Usage Monitor v1.0 ]</div>
+        </header>
+
+        <main class="terminal-body">
+            <!-- Status Section -->
+            <section class="status-section">
+                <div class="section-header">
+                    <span class="prompt">$</span> ./status --verbose
+                </div>
+
+                <div class="status-grid">
+                    <!-- 5-Hour Window -->
+                    <div class="status-card">
+                        <div class="card-title">5-HOUR WINDOW</div>
+                        <div class="progress-container">
+                            <div class="progress-bar">
+                                <span class="progress-fill" id="five-hour-fill"></span>
+                            </div>
+                            <div class="progress-text">
+                                <span class="progress-ascii" id="five-hour-ascii">[░░░░░░░░░░░░░░░░░░░░]</span>
+                                <span class="progress-percent" id="five-hour-percent">--.--%</span>
+                            </div>
+                        </div>
+                        <div class="reset-info">
+                            <span class="label">RESETS IN:</span>
+                            <span class="countdown" id="five-hour-countdown">--:--:--</span>
+                            <span class="reset-time" id="five-hour-reset-time"></span>
+                        </div>
+                    </div>
+
+                    <!-- 7-Day Rolling -->
+                    <div class="status-card">
+                        <div class="card-title">7-DAY ROLLING</div>
+                        <div class="progress-container">
+                            <div class="progress-bar">
+                                <span class="progress-fill" id="seven-day-fill"></span>
+                            </div>
+                            <div class="progress-text">
+                                <span class="progress-ascii" id="seven-day-ascii">[░░░░░░░░░░░░░░░░░░░░]</span>
+                                <span class="progress-percent" id="seven-day-percent">--.--%</span>
+                            </div>
+                        </div>
+                        <div class="reset-info">
+                            <span class="label">RESETS IN:</span>
+                            <span class="countdown" id="seven-day-countdown">--:--:--</span>
+                            <span class="reset-time" id="seven-day-reset-time"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quip -->
+                <div class="quip-container">
+                    <span class="prompt">&gt;</span>
+                    <span class="quip" id="quip">Initializing snark module...</span>
+                    <span class="cursor">█</span>
+                </div>
+            </section>
+
+            <!-- History Section -->
+            <section class="history-section">
+                <div class="section-header">
+                    <span class="prompt">$</span> ./history --range <select id="history-range" class="range-select">
+                        <option value="24h">24h</option>
+                        <option value="7d" selected>7d</option>
+                        <option value="30d">30d</option>
+                    </select>
+                </div>
+                <div class="chart-container">
+                    <canvas id="history-chart"></canvas>
+                </div>
+            </section>
+
+            <!-- Last Updated -->
+            <div class="footer">
+                <span class="label">LAST SYNC:</span>
+                <span id="last-updated">Never</span>
+                <span class="separator">|</span>
+                <span class="label">NEXT POLL:</span>
+                <span id="next-poll">~5 min</span>
+                <span class="separator">|</span>
+                <button class="refresh-btn" onclick="fetchData()">[ REFRESH ]</button>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+{
+  "statusLine": {
+    "type": "command",
+    "command": "/mnt/claude-data/statusline.sh"
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "curl -s -X POST 'https://api.telegram.org/bot8448374682:AAHtILgwkgVXZk1w862T1OAbNF1Up9mHL5M/sendMessage' -d chat_id=8476903521 -d text=\"$(basename $PWD): Claude finished\""
+          }
+        ]
+      }
+    ]
+  }
+}
