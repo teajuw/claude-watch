@@ -72,20 +72,24 @@ Generate a short, witty notification (under 100 chars) for someone who just hit 
 
 ---
 
-## Phase 4: Window Scheduler
+## Phase 4: Window Scheduler (Paused)
 
-**Goal:** "Rate gaming" - automatically start 5-hour windows at optimal times.
+**Goal:** "Rate gaming" - schedule sessions and get reminders at optimal times.
 
-**Implementation:**
-1. `schedule.json` config with preferred window start times
-2. `window-scheduler.py` or GitHub Actions cron job
-3. Sends minimal Claude request to start the window
-4. Telegram notification: "Window started, resets at X:XX PM PST"
+**Status:** Partially implemented, paused for refinement.
 
-**UI:**
-- Timeline visualization of 24-hour day
-- Add/remove scheduled times
-- Enable/disable automation
+**What exists (commented out / unused):**
+- `schedule.html` + `schedule.js` - 24-hour timeline UI
+- Worker endpoints: `GET/POST /api/schedule`, `POST /api/session/start`
+- Cron handler for session reminders in `worker/src/cron/sessions.js`
+- D1 table for sessions
+
+**TODO before enabling:**
+- [ ] Refine the "Start Session" concept - what should it actually do?
+- [ ] Better UX for the timeline (drag to create sessions?)
+- [ ] Test session reminder notifications
+- [ ] Add SCHEDULE button back to index.html footer
+- [ ] Consider: auto-start windows vs just reminders?
 
 ---
 

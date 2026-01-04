@@ -209,34 +209,35 @@ async function fetchCurrentUsage() {
     };
 }
 
-async function startSessionNow() {
-    if (CONFIG.localMode) {
-        showError('Session start not available in local mode');
-        return;
-    }
-
-    try {
-        const response = await fetch(`${CONFIG.workerUrl}/api/session/start`, {
-            method: 'POST',
-        });
-        const result = await response.json();
-
-        if (result.success) {
-            const endsAt = new Date(result.ends_at);
-            const quipEl = document.getElementById('quip');
-            if (quipEl) {
-                quipEl.textContent = `Session started! Ends at ${endsAt.toLocaleTimeString()}`;
-            }
-            // Refresh data
-            await fetchData();
-        } else {
-            showError(result.error || 'Failed to start session');
-        }
-    } catch (error) {
-        console.error('Session start error:', error);
-        showError(error.message);
-    }
-}
+// TODO: Session scheduling feature paused - see BACKLOG.md Phase 4
+// async function startSessionNow() {
+//     if (CONFIG.localMode) {
+//         showError('Session start not available in local mode');
+//         return;
+//     }
+//
+//     try {
+//         const response = await fetch(`${CONFIG.workerUrl}/api/session/start`, {
+//             method: 'POST',
+//         });
+//         const result = await response.json();
+//
+//         if (result.success) {
+//             const endsAt = new Date(result.ends_at);
+//             const quipEl = document.getElementById('quip');
+//             if (quipEl) {
+//                 quipEl.textContent = `Session started! Ends at ${endsAt.toLocaleTimeString()}`;
+//             }
+//             // Refresh data
+//             await fetchData();
+//         } else {
+//             showError(result.error || 'Failed to start session');
+//         }
+//     } catch (error) {
+//         console.error('Session start error:', error);
+//         showError(error.message);
+//     }
+// }
 
 // =============================================================================
 // UI Updates
