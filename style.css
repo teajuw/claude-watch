@@ -99,6 +99,11 @@ body {
     display: inline-block;
 }
 
+.watch-logo {
+    color: var(--text-primary);
+    text-shadow: 0 0 10px rgba(224, 224, 224, 0.3);
+}
+
 @media (min-width: 600px) {
     .ascii-logo {
         font-size: 0.65rem;

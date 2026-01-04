@@ -105,7 +105,9 @@ async function checkFiveHourThresholds(env, usage) {
     if (currentUtil >= threshold && !alertsSent.includes(alertKey)) {
       console.log(`5-hour threshold ${threshold}% crossed at ${currentUtil}%`);
 
-      const quip = getRandomQuip(FIVE_HOUR_QUIPS);
+      // Use maxed quips for 100%
+      const quips = threshold >= 100 ? FIVE_HOUR_MAXED_QUIPS : FIVE_HOUR_QUIPS;
+      const quip = getRandomQuip(quips);
       const message = `5 hour tokens at ${Math.round(currentUtil)}% (${countdown} left)\n\n${quip}`;
 
       await sendTelegram(env, message);
@@ -132,7 +134,9 @@ async function checkSevenDayThresholds(env, usage) {
     if (currentUtil >= threshold && !alertsSent.includes(alertKey)) {
       console.log(`7-day threshold ${threshold}% crossed at ${currentUtil}%`);
 
-      const quip = getRandomQuip(SEVEN_DAY_QUIPS);
+      // Use maxed quips for 100%
+      const quips = threshold >= 100 ? SEVEN_DAY_MAXED_QUIPS : SEVEN_DAY_QUIPS;
+      const quip = getRandomQuip(quips);
       const message = `Weekly tokens at ${Math.round(currentUtil)}% (${countdown} left)\n\n${quip}`;
 
       await sendTelegram(env, message);
