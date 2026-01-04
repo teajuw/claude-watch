@@ -93,6 +93,63 @@ Generate a short, witty notification (under 100 chars) for someone who just hit 
 
 ---
 
+---
+
+## Phase 5: Claudomate - Agent Management Tool
+
+**Goal:** Full agent orchestration and management platform.
+
+### 5.1 Daily Token Sync Cron
+
+Automatic credential sync to prevent dashboard auth failures.
+
+**Options:**
+- Cloudflare Worker cron (proactive refresh via API)
+- GitHub Actions cron (runs sync-credentials script)
+- Local crontab (machine must be on)
+
+**Implementation:**
+```bash
+# Local crontab option
+0 8 * * * $HOME/projects/claude-watch/bin/sync-credentials >/dev/null 2>&1
+```
+
+### 5.2 Telegram Notification on Agent Spawn
+
+Notify when new agents come online.
+
+**Implementation:**
+```bash
+# In claude-sandbox, after setting up hooks:
+if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
+    curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+      -d chat_id="$TELEGRAM_CHAT_ID" \
+      -d text="🚀 Agent $AGENT_ID spawned on $PROJECT" &>/dev/null &
+fi
+```
+
+### 5.3 Desktop Notification on Rate Limit Warning
+
+Push notifications when approaching rate limits.
+
+**Options:**
+- Worker calls webhook → local notification daemon
+- Browser push notifications from dashboard
+- Native desktop app (Electron/Tauri)
+
+### 5.4 Agent Orchestrator
+
+Central control for spawning/managing multiple agents.
+
+**Features:**
+- Spawn agents from web UI
+- Monitor all agents in real-time
+- Kill/restart agents remotely
+- Queue tasks for agents
+- Load balancing across containers
+
+---
+
 ## Ideas / Maybe Later
 
 - [ ] Browser extension showing usage in toolbar

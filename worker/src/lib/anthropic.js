@@ -3,7 +3,8 @@
  */
 
 const USAGE_API_URL = 'https://api.anthropic.com/api/oauth/usage';
-const TOKEN_REFRESH_URL = 'https://console.anthropic.com/v1/oauth/token';
+const TOKEN_REFRESH_URL = 'https://console.anthropic.com/api/oauth/token';
+const CLAUDE_CODE_CLIENT_ID = '9d1c250a-e61b-44d9-88ed-5944d1962f5e';
 
 /**
  * Fetch current usage from Anthropic API
@@ -36,6 +37,7 @@ export function isTokenExpired(expiresAt) {
 
 /**
  * Refresh the access token using refresh token
+ * Uses the official Claude Code client_id for token refresh
  */
 export async function refreshAccessToken(refreshToken) {
   const response = await fetch(TOKEN_REFRESH_URL, {
@@ -47,6 +49,7 @@ export async function refreshAccessToken(refreshToken) {
     body: JSON.stringify({
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
+      client_id: CLAUDE_CODE_CLIENT_ID,
     }),
   });
 
