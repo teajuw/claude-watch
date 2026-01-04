@@ -27,7 +27,7 @@ current=$(cat "$stats_file")
 curr_input=$(echo "$current" | jq -r '.input_tokens // 0')
 curr_output=$(echo "$current" | jq -r '.output_tokens // 0')
 project=$(echo "$current" | jq -r '.project // "unknown"')
-agent_id=$(echo "$current" | jq -r '.agent_id // "unknown"')
+agent_id=$(echo "$current" | jq -r '.agent_id // "local"')
 
 # Get last logged values (for delta)
 if [ -f "$last_file" ]; then
@@ -59,10 +59,10 @@ if [ $delta_input -gt 0 ] || [ $delta_output -gt 0 ]; then
   cp "$stats_file" "$last_file"
 fi
 
-# Send Telegram notification
+# Send Telegram notification - format: project(agent): Claude finished
 if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
   curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
     -d chat_id="$TELEGRAM_CHAT_ID" \
-    -d text="[$agent_id] $project: Claude finished (+${delta_input}->${delta_output} tokens)" \
+    -d text="${project}(${agent_id}): Claude finished" \
     > /dev/null 2>&1 &
 fi

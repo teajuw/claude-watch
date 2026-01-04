@@ -10,6 +10,7 @@ import { handleScheduleGet, handleSchedulePost } from './api/schedule';
 import { handleSessionStart } from './api/session';
 import { handleUsageLog, handleProjectsSummary, handleProjectsHistory, handleTokensSummary } from './api/projects';
 import { handleAgentHeartbeat, handleAgentsList, handleAgentDetails, handleAgentHistory, handleAgentsSummary } from './api/agents';
+import { handleTokenUpdate } from './api/tokens';
 import { runCron } from './cron/poll';
 import { handleCors, corsHeaders, errorResponse } from './utils/cors';
 
@@ -106,6 +107,12 @@ export default {
         case '/api/agents/summary':
           if (request.method === 'GET') {
             return handleAgentsSummary(request, env);
+          }
+          break;
+
+        case '/api/tokens/update':
+          if (request.method === 'POST') {
+            return handleTokenUpdate(request, env);
           }
           break;
 
