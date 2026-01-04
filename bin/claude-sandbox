@@ -7,12 +7,79 @@ set -e
 CLAUDE_WATCH_DIR="${CLAUDE_WATCH_DIR:-$HOME/projects/claude-watch}"
 CLAUDE_DATA_VOLUME="docker-claude-sandbox-data"
 WORKER_URL="https://claude-watch.trevorju32.workers.dev"
+CLAUDE_CREDS="$HOME/.claude/.credentials.json"
 
 # Load .env for Telegram credentials
 [ -f "$CLAUDE_WATCH_DIR/.env" ] && source "$CLAUDE_WATCH_DIR/.env"
 
 # Generate unique agent ID
 AGENT_ID="agent-$(date +%s | tail -c 6)"
+
+# =============================================================================
+# Token Freshness Check
+# =============================================================================
+check_and_refresh_tokens() {
+    # Check if credentials exist
+    if [ ! -f "$CLAUDE_CREDS" ]; then
+        echo "⚠ No Claude credentials found. Run 'claude' to login first."
+        return 1
+    fi
+
+    # Get expiry time
+    local expires_at=$(jq -r '.claudeAiOauth.expiresAt // 0' "$CLAUDE_CREDS" 2>/dev/null)
+    local now_ms=$(($(date +%s) * 1000))
+    local buffer_ms=$((30 * 60 * 1000))  # 30 minute buffer
+
+    if [ "$expires_at" -lt "$((now_ms + buffer_ms))" ]; then
+        echo "🔄 Token expires soon, refreshing via local Claude..."
+        # Run a quick claude command to trigger token refresh
+        claude --version >/dev/null 2>&1 || true
+        sleep 1
+    fi
+
+    # Check if we should sync to worker (if token was refreshed recently)
+    local last_sync=$(cat "$CLAUDE_WATCH_DIR/.last-sync" 2>/dev/null || echo "0")
+    local sync_interval=$((4 * 60 * 60))  # Sync every 4 hours
+    local now=$(date +%s)
+
+    if [ "$((now - last_sync))" -gt "$sync_interval" ]; then
+        echo "☁ Syncing credentials to Cloudflare Worker..."
+        sync_to_worker_silent
+        echo "$now" > "$CLAUDE_WATCH_DIR/.last-sync"
+    fi
+}
+
+sync_to_worker_silent() {
+    # Find wrangler
+    local WRANGLER=""
+    if command -v wrangler &> /dev/null; then
+        WRANGLER="wrangler"
+    elif [ -d "$HOME/.nvm" ]; then
+        local NODE_DIR=$(ls "$HOME/.nvm/versions/node/" 2>/dev/null | head -1)
+        if [ -n "$NODE_DIR" ]; then
+            WRANGLER="$HOME/.nvm/versions/node/$NODE_DIR/bin/wrangler"
+        fi
+    fi
+
+    if [ -z "$WRANGLER" ] || [ ! -x "$WRANGLER" ]; then
+        echo "  ⚠ wrangler not found, skipping sync"
+        return 0
+    fi
+
+    local ACCESS_TOKEN=$(jq -r '.claudeAiOauth.accessToken' "$CLAUDE_CREDS")
+    local REFRESH_TOKEN=$(jq -r '.claudeAiOauth.refreshToken' "$CLAUDE_CREDS")
+    local EXPIRES_AT=$(jq -r '.claudeAiOauth.expiresAt' "$CLAUDE_CREDS")
+
+    (
+        cd "$CLAUDE_WATCH_DIR/worker"
+        echo "$ACCESS_TOKEN" | $WRANGLER secret put CLAUDE_ACCESS_TOKEN --quiet 2>/dev/null
+        echo "$REFRESH_TOKEN" | $WRANGLER secret put CLAUDE_REFRESH_TOKEN --quiet 2>/dev/null
+        echo "$EXPIRES_AT" | $WRANGLER secret put CLAUDE_TOKEN_EXPIRES_AT --quiet 2>/dev/null
+        $WRANGLER kv key delete oauth_tokens --namespace-id=4b55acfc702f4698b53c5f1219edf63d --remote --force 2>/dev/null || true
+    ) &>/dev/null
+
+    echo "  ✓ Credentials synced"
+}
 
 usage() {
     echo "Usage: claude-sandbox [path] [options] [prompt]"
@@ -85,6 +152,9 @@ echo "Agent ID:  $AGENT_ID"
 echo "Workspace: $WORKSPACE"
 echo "Project:   $PROJECT"
 echo ""
+
+# Ensure tokens are fresh and synced
+check_and_refresh_tokens
 
 # Check if docker sandbox command is available
 if ! docker sandbox --help >/dev/null 2>&1; then
