@@ -44,6 +44,7 @@ delta_output=$((curr_output - last_output))
 
 # POST to Worker (if new usage)
 if [ $delta_input -gt 0 ] || [ $delta_output -gt 0 ]; then
+  # Agent heartbeat (for agents dashboard)
   curl -s -X POST "${WORKER_URL}/api/agent/heartbeat" \
     -H "Content-Type: application/json" \
     -d "{
@@ -53,6 +54,16 @@ if [ $delta_input -gt 0 ] || [ $delta_output -gt 0 ]; then
       \"input_tokens\": $delta_input,
       \"output_tokens\": $delta_output,
       \"timestamp\": \"$(date -Iseconds)\"
+    }" > /dev/null 2>&1 &
+
+  # Project usage log (for projects pie chart)
+  curl -s -X POST "${WORKER_URL}/api/usage/log" \
+    -H "Content-Type: application/json" \
+    -d "{
+      \"session_id\": \"$session_id\",
+      \"project\": \"$project\",
+      \"input_tokens\": $delta_input,
+      \"output_tokens\": $delta_output
     }" > /dev/null 2>&1 &
 
   # Save for next delta

@@ -6,8 +6,6 @@
 
 import { handleUsage } from './api/usage';
 import { handleHistory } from './api/history';
-import { handleScheduleGet, handleSchedulePost } from './api/schedule';
-import { handleSessionStart } from './api/session';
 import { handleUsageLog, handleProjectsSummary, handleProjectsHistory, handleTokensSummary } from './api/projects';
 import { handleAgentHeartbeat, handleAgentsList, handleAgentDetails, handleAgentHistory, handleAgentsSummary } from './api/agents';
 import { handleTokenUpdate } from './api/tokens';
@@ -28,14 +26,14 @@ export default {
     const path = url.pathname;
 
     try {
-      // Handle dynamic agent routes first
+      // Handle dynamic agent routes (but not /api/agents/summary which is a static route)
       const agentMatch = path.match(/^\/api\/agents\/([^\/]+)$/);
       const agentHistoryMatch = path.match(/^\/api\/agents\/([^\/]+)\/history$/);
 
       if (agentHistoryMatch && request.method === 'GET') {
         return handleAgentHistory(request, env, agentHistoryMatch[1]);
       }
-      if (agentMatch && request.method === 'GET') {
+      if (agentMatch && agentMatch[1] !== 'summary' && request.method === 'GET') {
         return handleAgentDetails(request, env, agentMatch[1]);
       }
 
@@ -50,20 +48,6 @@ export default {
         case '/api/history':
           if (request.method === 'GET') {
             return handleHistory(request, env);
-          }
-          break;
-
-        case '/api/schedule':
-          if (request.method === 'GET') {
-            return handleScheduleGet(env);
-          } else if (request.method === 'POST') {
-            return handleSchedulePost(request, env);
-          }
-          break;
-
-        case '/api/session/start':
-          if (request.method === 'POST') {
-            return handleSessionStart(env);
           }
           break;
 
