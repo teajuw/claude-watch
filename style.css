@@ -231,6 +231,11 @@ body {
     font-size: 1.125rem;
 }
 
+.countdown.available {
+    color: var(--status-low);
+    font-weight: 700;
+}
+
 .reset-time {
     color: var(--text-dim);
     font-size: 0.75rem;

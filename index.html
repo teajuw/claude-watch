@@ -12,20 +12,30 @@
     <div class="terminal">
         <header class="terminal-header">
 <pre class="ascii-logo">
-   ██████╗██╗     █████╗  ██╗   ██╗██████╗ ███████╗
+   ██████╗██╗      █████╗ ██╗   ██╗██████╗ ███████╗
   ██╔════╝██║     ██╔══██╗██║   ██║██╔══██╗██╔════╝
   ██║     ██║     ███████║██║   ██║██║  ██║█████╗
   ██║     ██║     ██╔══██║██║   ██║██║  ██║██╔══╝
   ╚██████╗███████╗██║  ██║╚██████╔╝██████╔╝███████╗
    ╚═════╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝
-                ╦ ╦ ╔═╗ ╔╦╗ ╔═╗ ╦ ╦
-                ║║║ ╠═╣  ║  ║   ╠═╣
-                ╚╩╝ ╩ ╩  ╩  ╚═╝ ╩ ╩
+  ██╗    ██╗ █████╗ ████████╗ ██████╗██╗  ██╗
+  ██║    ██║██╔══██╗╚══██╔══╝██╔════╝██║  ██║
+  ██║ █╗ ██║███████║   ██║   ██║     ███████║
+  ██║███╗██║██╔══██║   ██║   ██║     ██╔══██║
+  ╚███╔███╔╝██║  ██║   ██║   ╚██████╗██║  ██║
+   ╚══╝╚══╝ ╚═╝  ╚═╝   ╚═╝    ╚═════╝╚═╝  ╚═╝
 </pre>
             <div class="subtitle">[ Claude Max 5x Usage Monitor v1.0 ]</div>
         </header>
 
         <main class="terminal-body">
+            <!-- Quip -->
+            <div class="quip-container">
+                <span class="prompt">&gt;</span>
+                <span class="quip" id="quip">Initializing snark module...</span>
+                <span class="cursor">█</span>
+            </div>
+
             <!-- Status Section -->
             <section class="status-section">
                 <div class="section-header">
@@ -70,13 +80,6 @@
                             <span class="reset-time" id="seven-day-reset-time"></span>
                         </div>
                     </div>
-                </div>
-
-                <!-- Quip -->
-                <div class="quip-container">
-                    <span class="prompt">&gt;</span>
-                    <span class="quip" id="quip">Initializing snark module...</span>
-                    <span class="cursor">█</span>
                 </div>
             </section>
 

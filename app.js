@@ -21,6 +21,14 @@ const CONFIG = {
 // =============================================================================
 
 const QUIPS = {
+    idle: [
+        "Full capacity. The world is your oyster.",
+        "Tokens gathering dust.",
+        "Opus waits. Patiently.",
+        "The well is full. Drink up.",
+        "Ready when you are.",
+        "Idle hands are the devil's workshop. Get coding.",
+    ],
     low: [
         "Fresh window energy. The world is your oyster.",
         "Tokens for days. Live your best life.",
@@ -61,6 +69,16 @@ const QUIPS = {
         "Error 429 enters the chat.",
         "Maybe touch grass until reset?",
     ],
+    maxed: [
+        "Congratulations, you played yourself.",
+        "Achievement unlocked: Token Bankruptcy.",
+        "The well is dry. Touch grass.",
+        "Error 429. Go outside.",
+        "You've hit the wall. The wall won.",
+        "Opus has left the chat.",
+        "Rate limit speedrun complete. New PB?",
+        "The meter is full. You are empty.",
+    ],
     loading: [
         "Initializing snark module...",
         "Counting tokens... 1... 2... many...",
@@ -76,10 +94,14 @@ const QUIPS = {
     ],
 };
 
-function getQuip(utilization) {
+function getQuip(utilization, isIdle = false) {
     let category;
     if (utilization === null || utilization === undefined) {
         category = 'loading';
+    } else if (isIdle || utilization === 0) {
+        category = 'idle';
+    } else if (utilization >= 100) {
+        category = 'maxed';
     } else if (utilization < 25) {
         category = 'low';
     } else if (utilization < 50) {
@@ -258,24 +280,38 @@ function updateProgressBar(prefix, utilization) {
     percent.textContent = `${util.toFixed(1)}%`;
 }
 
-function updateCountdown(prefix, resetAt) {
+function updateCountdown(prefix, resetAt, utilization = null) {
     const countdownEl = document.getElementById(`${prefix}-countdown`);
     const resetTimeEl = document.getElementById(`${prefix}-reset-time`);
+    const labelEl = countdownEl?.previousElementSibling;
 
     if (!countdownEl) return;
 
-    const resetDate = parseResetTime(resetAt);
-    countdownEl.textContent = formatCountdown(resetDate);
+    // Check if idle (no reset time or 0% utilization)
+    const isIdle = !resetAt || utilization === 0;
 
-    if (resetTimeEl) {
-        resetTimeEl.textContent = formatResetTime(resetDate);
+    if (isIdle) {
+        // Show "AVAILABLE" instead of countdown
+        if (labelEl) labelEl.textContent = '';
+        countdownEl.textContent = 'AVAILABLE';
+        countdownEl.classList.add('available');
+        if (resetTimeEl) resetTimeEl.textContent = '';
+    } else {
+        // Normal countdown display
+        if (labelEl) labelEl.textContent = 'RESETS IN:';
+        countdownEl.classList.remove('available');
+        const resetDate = parseResetTime(resetAt);
+        countdownEl.textContent = formatCountdown(resetDate);
+        if (resetTimeEl) {
+            resetTimeEl.textContent = formatResetTime(resetDate);
+        }
     }
 }
 
-function updateQuip(utilization) {
+function updateQuip(utilization, isIdle = false) {
     const quipEl = document.getElementById('quip');
     if (quipEl) {
-        quipEl.textContent = getQuip(utilization);
+        quipEl.textContent = getQuip(utilization, isIdle);
     }
 }
 
@@ -472,10 +508,12 @@ async function fetchData() {
         updateProgressBar('five-hour', fiveHour.utilization);
         updateProgressBar('seven-day', sevenDay.utilization);
 
-        updateCountdown('five-hour', fiveHour.resets_at);
-        updateCountdown('seven-day', sevenDay.resets_at);
+        updateCountdown('five-hour', fiveHour.resets_at, fiveHour.utilization);
+        updateCountdown('seven-day', sevenDay.resets_at, sevenDay.utilization);
 
-        updateQuip(fiveHour.utilization);
+        // Use idle quip if 5-hour is at 0%
+        const isIdle = !fiveHour.resets_at || fiveHour.utilization === 0;
+        updateQuip(fiveHour.utilization, isIdle);
         updateLastUpdated(latestData.timestamp);
 
         // Update chart
@@ -495,8 +533,8 @@ function startCountdownTimer() {
 
     countdownInterval = setInterval(() => {
         if (latestData) {
-            updateCountdown('five-hour', latestData.five_hour?.resets_at);
-            updateCountdown('seven-day', latestData.seven_day?.resets_at);
+            updateCountdown('five-hour', latestData.five_hour?.resets_at, latestData.five_hour?.utilization);
+            updateCountdown('seven-day', latestData.seven_day?.resets_at, latestData.seven_day?.utilization);
         }
     }, 1000);
 }
