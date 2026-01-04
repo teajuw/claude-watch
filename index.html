@@ -22,10 +22,18 @@
                  ║║║╠═╣ ║ ║  ╠═╣
                  ╚╩╝╩ ╩ ╩ ╚═╝╩ ╩</span>
 </pre>
-            <div class="subtitle">[ Claude Max 5x Usage Monitor v1.0 ]</div>
+            <div class="subtitle">[ Claude Max 5x Usage Monitor v2.0 ]</div>
         </header>
 
+        <!-- Tab Navigation -->
+        <nav class="tab-nav">
+            <button class="tab-btn active" data-tab="user" onclick="switchTab('user')">[ USER ]</button>
+            <button class="tab-btn" data-tab="agents" onclick="switchTab('agents')">[ AGENTS ]</button>
+        </nav>
+
         <main class="terminal-body">
+            <!-- User Tab Content -->
+            <div id="tab-user" class="tab-content active">
             <!-- Quip -->
             <div class="quip-container">
                 <span class="prompt">&gt;</span>
@@ -141,6 +149,60 @@
                     <canvas id="history-chart"></canvas>
                 </div>
             </section>
+
+            </div><!-- End User Tab -->
+
+            <!-- Agents Tab Content -->
+            <div id="tab-agents" class="tab-content">
+                <!-- Fleet Overview -->
+                <section class="agents-overview">
+                    <div class="section-header">
+                        <span class="prompt">$</span> ./agents --fleet
+                    </div>
+                    <div class="fleet-stats">
+                        <div class="stat-box">
+                            <div class="stat-value" id="fleet-agent-count">0</div>
+                            <div class="stat-label">AGENTS</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="fleet-input-tokens">0</div>
+                            <div class="stat-label">INPUT TOKENS</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="fleet-output-tokens">0</div>
+                            <div class="stat-label">OUTPUT TOKENS</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="fleet-messages">0</div>
+                            <div class="stat-label">MESSAGES</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Agent Grid -->
+                <section class="agents-grid-section">
+                    <div class="section-header">
+                        <span class="prompt">$</span> ./agents --list
+                    </div>
+                    <div class="agents-grid" id="agents-grid">
+                        <div class="agent-empty">No agents connected yet. Run 'claude-sandbox' to spawn an agent.</div>
+                    </div>
+                </section>
+
+                <!-- Agent Breakdown -->
+                <section class="agents-breakdown-section">
+                    <div class="section-header">
+                        <span class="prompt">$</span> ./agents --breakdown <select id="agents-range" class="range-select">
+                            <option value="24h">24h</option>
+                            <option value="7d" selected>7d</option>
+                            <option value="30d">30d</option>
+                        </select>
+                    </div>
+                    <div class="agents-chart-container">
+                        <canvas id="agents-pie"></canvas>
+                    </div>
+                </section>
+            </div><!-- End Agents Tab -->
 
             <!-- Footer Actions -->
             <div class="footer">

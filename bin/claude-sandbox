@@ -1,0 +1,146 @@
+#!/bin/bash
+# claude-sandbox - Spawn Claude in isolated Docker sandbox with monitoring hooks
+# Replaces claude-agent start
+set -e
+
+# Config
+CLAUDE_WATCH_DIR="${CLAUDE_WATCH_DIR:-$HOME/projects/claude-watch}"
+CLAUDE_DATA_VOLUME="docker-claude-sandbox-data"
+WORKER_URL="https://claude-watch.trevorju32.workers.dev"
+
+# Load .env for Telegram credentials
+[ -f "$CLAUDE_WATCH_DIR/.env" ] && source "$CLAUDE_WATCH_DIR/.env"
+
+# Generate unique agent ID
+AGENT_ID="agent-$(date +%s | tail -c 6)"
+
+usage() {
+    echo "Usage: claude-sandbox [path] [options] [prompt]"
+    echo ""
+    echo "Spawn Claude in isolated Docker sandbox with monitoring."
+    echo ""
+    echo "Options:"
+    echo "  -c, --continue    Continue previous conversation"
+    echo "  -h, --help        Show this help"
+    echo ""
+    echo "Examples:"
+    echo "  claude-sandbox                    # Current dir, fresh session"
+    echo "  claude-sandbox -c                 # Continue last conversation"
+    echo "  claude-sandbox ~/projects/app     # Specific project"
+    echo "  claude-sandbox . \"Fix the bug\"   # Start with a prompt"
+    echo ""
+    echo "Environment:"
+    echo "  AGENT_ID is auto-generated for tracking."
+    echo "  Metrics are sent to: $WORKER_URL"
+}
+
+# Parse args
+WORKSPACE=""
+CONTINUE=""
+PROMPT=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -c|--continue)
+            CONTINUE="-c"
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        -*)
+            echo "Unknown option: $1"
+            usage
+            exit 1
+            ;;
+        *)
+            if [ -z "$WORKSPACE" ]; then
+                # Check if it looks like a path
+                if [ -d "$1" ] || [[ "$1" == /* ]] || [[ "$1" == .* ]] || [[ "$1" == ~* ]]; then
+                    WORKSPACE="$1"
+                else
+                    # It's a prompt, use current dir
+                    PROMPT="$1"
+                fi
+            else
+                # Additional args become the prompt
+                PROMPT="$1"
+            fi
+            shift
+            ;;
+    esac
+done
+
+# Default to current directory
+WORKSPACE="${WORKSPACE:-$(pwd)}"
+WORKSPACE=$(realpath "$WORKSPACE")
+PROJECT=$(basename "$WORKSPACE")
+
+echo "╔════════════════════════════════════════════╗"
+echo "║  Claude Watch - Sandbox Mode               ║"
+echo "╚════════════════════════════════════════════╝"
+echo ""
+echo "Agent ID:  $AGENT_ID"
+echo "Workspace: $WORKSPACE"
+echo "Project:   $PROJECT"
+echo ""
+
+# Check if docker sandbox command is available
+if ! docker sandbox --help >/dev/null 2>&1; then
+    echo "ERROR: 'docker sandbox' command not found."
+    echo "Requires Docker Desktop 4.50+ with sandbox feature enabled."
+    exit 1
+fi
+
+# Ensure hooks are in the data volume
+# This copies our hooks to the persistent volume that gets mounted at /mnt/claude-data
+echo "Setting up hooks..."
+docker run --rm -v "$CLAUDE_DATA_VOLUME:/mnt/claude-data" \
+  -v "$CLAUDE_WATCH_DIR/hooks:/source:ro" \
+  alpine sh -c "
+    mkdir -p /mnt/claude-data/hooks
+    cp /source/*.sh /mnt/claude-data/hooks/ 2>/dev/null || true
+    chmod +x /mnt/claude-data/hooks/*.sh 2>/dev/null || true
+  "
+
+# Copy settings.json template (configures hooks)
+docker run --rm -v "$CLAUDE_DATA_VOLUME:/mnt/claude-data" \
+  alpine sh -c "cat > /mnt/claude-data/settings.json" << 'EOF'
+{
+  "hooks": {
+    "Stop": [
+      {
+        "type": "command",
+        "command": "/mnt/claude-data/hooks/stop-hook.sh"
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "/mnt/claude-data/hooks/statusline.sh"
+  }
+}
+EOF
+
+echo "Starting Claude..."
+echo ""
+
+# Build docker sandbox args
+SANDBOX_ARGS="-w $WORKSPACE"
+SANDBOX_ARGS="$SANDBOX_ARGS -e AGENT_ID=$AGENT_ID"
+SANDBOX_ARGS="$SANDBOX_ARGS -e PROJECT=$PROJECT"
+SANDBOX_ARGS="$SANDBOX_ARGS -e WORKER_URL=$WORKER_URL"
+SANDBOX_ARGS="$SANDBOX_ARGS -e CLAUDE_WATCH_DIR=/mnt/claude-data"
+
+# Add Telegram env vars if set
+[ -n "$TELEGRAM_BOT_TOKEN" ] && SANDBOX_ARGS="$SANDBOX_ARGS -e TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN"
+[ -n "$TELEGRAM_USER_ID" ] && SANDBOX_ARGS="$SANDBOX_ARGS -e TELEGRAM_CHAT_ID=$TELEGRAM_USER_ID"
+[ -n "$TELEGRAM_CHAT_ID" ] && SANDBOX_ARGS="$SANDBOX_ARGS -e TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID"
+
+# Run docker sandbox
+if [ -n "$PROMPT" ]; then
+    docker sandbox run $SANDBOX_ARGS claude $CONTINUE "$PROMPT"
+else
+    docker sandbox run $SANDBOX_ARGS claude $CONTINUE
+fi

@@ -851,6 +851,245 @@ function updateChartWithProjection(history, range, projectionMode) {
 }
 
 // =============================================================================
+// Tab Switching
+// =============================================================================
+
+function switchTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tabName);
+    });
+
+    // Update tab content
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.toggle('active', content.id === `tab-${tabName}`);
+    });
+
+    // Fetch agents data when switching to agents tab
+    if (tabName === 'agents') {
+        fetchAgentsData();
+    }
+
+    // Update URL hash for bookmarking
+    window.location.hash = tabName;
+}
+
+// =============================================================================
+// Agents Data Fetching
+// =============================================================================
+
+async function fetchAgentsList() {
+    if (CONFIG.localMode) return [];
+
+    try {
+        const response = await fetch(`${CONFIG.workerUrl}/api/agents`);
+        if (!response.ok) return [];
+        const result = await response.json();
+        return result.data || [];
+    } catch (error) {
+        console.error('Failed to fetch agents list:', error);
+        return [];
+    }
+}
+
+async function fetchAgentsSummary(range = '7d') {
+    if (CONFIG.localMode) {
+        return { agents: [], totals: { agent_count: 0, total_input: 0, total_output: 0, message_count: 0 } };
+    }
+
+    try {
+        const response = await fetch(`${CONFIG.workerUrl}/api/agents/summary?range=${range}`);
+        if (!response.ok) {
+            return { agents: [], totals: { agent_count: 0, total_input: 0, total_output: 0, message_count: 0 } };
+        }
+        const result = await response.json();
+        return result.data || { agents: [], totals: {} };
+    } catch (error) {
+        console.error('Failed to fetch agents summary:', error);
+        return { agents: [], totals: { agent_count: 0, total_input: 0, total_output: 0, message_count: 0 } };
+    }
+}
+
+async function fetchAgentsData() {
+    const range = document.getElementById('agents-range')?.value || '7d';
+
+    const [agents, summary] = await Promise.all([
+        fetchAgentsList(),
+        fetchAgentsSummary(range),
+    ]);
+
+    updateFleetStats(summary.totals);
+    renderAgentGrid(agents);
+    updateAgentsPieChart(summary.agents);
+}
+
+// =============================================================================
+// Agents UI Updates
+// =============================================================================
+
+function updateFleetStats(totals) {
+    const countEl = document.getElementById('fleet-agent-count');
+    const inputEl = document.getElementById('fleet-input-tokens');
+    const outputEl = document.getElementById('fleet-output-tokens');
+    const messagesEl = document.getElementById('fleet-messages');
+
+    if (countEl) countEl.textContent = totals.agent_count || 0;
+    if (inputEl) inputEl.textContent = formatTokens(totals.total_input || 0);
+    if (outputEl) outputEl.textContent = formatTokens(totals.total_output || 0);
+    if (messagesEl) messagesEl.textContent = totals.message_count || 0;
+}
+
+function getAgentStatusClass(agent) {
+    const lastSeen = new Date(agent.last_seen);
+    const now = new Date();
+    const diffMinutes = (now - lastSeen) / (1000 * 60);
+
+    if (diffMinutes < 5) return 'status-active';
+    if (diffMinutes < 60) return 'status-idle';
+    return 'status-inactive';
+}
+
+function getAgentStatusLabel(agent) {
+    const lastSeen = new Date(agent.last_seen);
+    const now = new Date();
+    const diffMinutes = (now - lastSeen) / (1000 * 60);
+
+    if (diffMinutes < 5) return 'ACTIVE';
+    if (diffMinutes < 60) return 'IDLE';
+    return 'INACTIVE';
+}
+
+function formatTimeAgo(isoString) {
+    if (!isoString) return 'Never';
+
+    const date = new Date(isoString);
+    const now = new Date();
+    const diffSeconds = Math.floor((now - date) / 1000);
+
+    if (diffSeconds < 60) return 'Just now';
+    if (diffSeconds < 3600) return `${Math.floor(diffSeconds / 60)}m ago`;
+    if (diffSeconds < 86400) return `${Math.floor(diffSeconds / 3600)}h ago`;
+    return `${Math.floor(diffSeconds / 86400)}d ago`;
+}
+
+function renderAgentGrid(agents) {
+    const grid = document.getElementById('agents-grid');
+    if (!grid) return;
+
+    if (!agents || agents.length === 0) {
+        grid.innerHTML = '<div class="agent-empty">No agents connected yet. Run \'claude-sandbox\' to spawn an agent.</div>';
+        return;
+    }
+
+    grid.innerHTML = agents.map(agent => {
+        const statusClass = getAgentStatusClass(agent);
+        const statusLabel = getAgentStatusLabel(agent);
+        const totalTokens = (agent.total_input_tokens || 0) + (agent.total_output_tokens || 0);
+
+        return `
+            <div class="agent-card ${statusClass}">
+                <div class="agent-header">
+                    <span class="agent-id">${agent.agent_id}</span>
+                    <span class="agent-status ${statusClass}">${statusLabel}</span>
+                </div>
+                <div class="agent-project">${agent.project || 'unknown'}</div>
+                <div class="agent-stats">
+                    <div class="agent-stat">
+                        <span class="stat-label">IN</span>
+                        <span class="stat-value">${formatTokens(agent.total_input_tokens || 0)}</span>
+                    </div>
+                    <div class="agent-stat">
+                        <span class="stat-label">OUT</span>
+                        <span class="stat-value">${formatTokens(agent.total_output_tokens || 0)}</span>
+                    </div>
+                    <div class="agent-stat">
+                        <span class="stat-label">TOTAL</span>
+                        <span class="stat-value">${formatTokens(totalTokens)}</span>
+                    </div>
+                </div>
+                <div class="agent-footer">
+                    <span class="agent-last-seen">Last seen: ${formatTimeAgo(agent.last_seen)}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// =============================================================================
+// Agents Pie Chart
+// =============================================================================
+
+let agentsPieChart = null;
+
+function initAgentsPieChart() {
+    const ctx = document.getElementById('agents-pie');
+    if (!ctx) return;
+
+    agentsPieChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: [],
+            datasets: [{
+                data: [],
+                backgroundColor: PROJECT_COLORS,
+                borderColor: '#1A1A1A',
+                borderWidth: 2,
+            }],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'right',
+                    labels: {
+                        color: '#808080',
+                        font: { family: 'monospace', size: 11 },
+                        boxWidth: 12,
+                    },
+                },
+                tooltip: {
+                    backgroundColor: '#1A1A1A',
+                    titleColor: '#E07A3E',
+                    bodyColor: '#E0E0E0',
+                    borderColor: '#E07A3E',
+                    borderWidth: 1,
+                    callbacks: {
+                        label: (ctx) => {
+                            const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                            const pct = ((ctx.raw / total) * 100).toFixed(1);
+                            return `${formatTokens(ctx.raw)} tokens (${pct}%)`;
+                        },
+                    },
+                },
+            },
+        },
+    });
+}
+
+function updateAgentsPieChart(agents) {
+    if (!agentsPieChart) return;
+
+    if (!agents || agents.length === 0) {
+        agentsPieChart.data.labels = [];
+        agentsPieChart.data.datasets[0].data = [];
+        agentsPieChart.update('none');
+        return;
+    }
+
+    // Calculate total tokens per agent
+    const agentData = agents.map(a => ({
+        id: a.agent_id,
+        tokens: (a.total_input || 0) + (a.total_output || 0),
+    })).filter(a => a.tokens > 0);
+
+    agentsPieChart.data.labels = agentData.map(a => a.id);
+    agentsPieChart.data.datasets[0].data = agentData.map(a => a.tokens);
+    agentsPieChart.update('none');
+}
+
+// =============================================================================
 // Main
 // =============================================================================
 
@@ -950,6 +1189,7 @@ function init() {
     // Initialize charts
     initChart();
     initProjectsPieChart();
+    initAgentsPieChart();
 
     // Start countdown timer
     startCountdownTimer();
@@ -959,6 +1199,12 @@ function init() {
 
     // Set up auto-refresh
     setInterval(fetchData, CONFIG.refreshInterval);
+
+    // Handle URL hash for tab switching
+    const hash = window.location.hash.replace('#', '');
+    if (hash === 'agents') {
+        switchTab('agents');
+    }
 
     // History range select handler
     const rangeSelect = document.getElementById('history-range');
@@ -1001,6 +1247,20 @@ function init() {
                 updateCostEstimates(tokens);
             } catch (error) {
                 console.error('Failed to update projects:', error);
+            }
+        });
+    }
+
+    // Agents range select handler
+    const agentsRangeSelect = document.getElementById('agents-range');
+    if (agentsRangeSelect) {
+        agentsRangeSelect.addEventListener('change', async () => {
+            try {
+                const summary = await fetchAgentsSummary(agentsRangeSelect.value);
+                updateFleetStats(summary.totals);
+                updateAgentsPieChart(summary.agents);
+            } catch (error) {
+                console.error('Failed to update agents:', error);
             }
         });
     }

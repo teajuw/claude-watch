@@ -875,3 +875,219 @@ body {
     color: var(--text-dim);
     font-size: 0.875rem;
 }
+
+/* =============================================================================
+   Tab Navigation
+   ============================================================================= */
+
+.tab-nav {
+    display: flex;
+    gap: var(--space-md);
+    margin-bottom: var(--space-lg);
+    border-bottom: 1px solid var(--claude-orange-dim);
+    padding-bottom: var(--space-sm);
+}
+
+.tab-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    font-family: inherit;
+    font-size: 0.875rem;
+    cursor: pointer;
+    padding: var(--space-sm) var(--space-md);
+    transition: color 0.2s ease;
+}
+
+.tab-btn:hover {
+    color: var(--text-primary);
+}
+
+.tab-btn.active {
+    color: var(--claude-orange);
+    border-bottom: 2px solid var(--claude-orange);
+    margin-bottom: -1px;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* =============================================================================
+   Agents Tab - Fleet Overview
+   ============================================================================= */
+
+.agents-overview {
+    margin-bottom: var(--space-xl);
+}
+
+.fleet-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-md);
+}
+
+@media (max-width: 600px) {
+    .fleet-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.stat-box {
+    background: var(--bg-card);
+    border: 1px solid var(--claude-orange-dim);
+    border-radius: 4px;
+    padding: var(--space-lg);
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--claude-orange);
+}
+
+.stat-label {
+    color: var(--text-dim);
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    margin-top: var(--space-xs);
+}
+
+/* =============================================================================
+   Agents Tab - Agent Grid
+   ============================================================================= */
+
+.agents-grid-section {
+    margin-bottom: var(--space-xl);
+}
+
+.agents-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--space-md);
+}
+
+.agent-empty {
+    grid-column: 1 / -1;
+    color: var(--text-dim);
+    font-style: italic;
+    text-align: center;
+    padding: var(--space-xl);
+    background: var(--bg-card);
+    border: 1px dashed var(--claude-orange-dim);
+    border-radius: 4px;
+}
+
+.agent-card {
+    background: var(--bg-card);
+    border: 1px solid var(--claude-orange-dim);
+    border-radius: 4px;
+    padding: var(--space-md);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.agent-card:hover {
+    border-color: var(--claude-orange);
+    box-shadow: 0 0 10px var(--claude-orange-glow);
+}
+
+.agent-card.status-active {
+    border-color: var(--status-low);
+}
+
+.agent-card.status-idle {
+    border-color: var(--status-medium);
+}
+
+.agent-card.status-inactive {
+    opacity: 0.6;
+}
+
+.agent-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-sm);
+}
+
+.agent-id {
+    color: var(--claude-orange);
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.agent-status {
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.agent-status.status-active {
+    background: rgba(74, 222, 128, 0.2);
+    color: var(--status-low);
+}
+
+.agent-status.status-idle {
+    background: rgba(250, 204, 21, 0.2);
+    color: var(--status-medium);
+}
+
+.agent-status.status-inactive {
+    background: rgba(128, 128, 128, 0.2);
+    color: var(--text-dim);
+}
+
+.agent-project {
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    margin-bottom: var(--space-sm);
+}
+
+.agent-stats {
+    display: flex;
+    gap: var(--space-md);
+    font-size: 0.75rem;
+    color: var(--text-dim);
+}
+
+.agent-stat {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.agent-stat-value {
+    color: var(--text-primary);
+}
+
+.agent-last-seen {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    margin-top: var(--space-sm);
+}
+
+/* =============================================================================
+   Agents Tab - Breakdown Chart
+   ============================================================================= */
+
+.agents-breakdown-section {
+    margin-bottom: var(--space-xl);
+}
+
+.agents-chart-container {
+    background: var(--bg-card);
+    border: 1px solid var(--claude-orange-dim);
+    border-radius: 4px;
+    padding: var(--space-lg);
+    min-height: 250px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}

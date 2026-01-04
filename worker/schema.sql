@@ -44,6 +44,29 @@ CREATE TABLE IF NOT EXISTS project_usage (
 CREATE INDEX IF NOT EXISTS idx_project_usage_project ON project_usage(project);
 CREATE INDEX IF NOT EXISTS idx_project_usage_timestamp ON project_usage(timestamp);
 
+-- Agent metrics (from Stop hook, per-agent tracking)
+CREATE TABLE IF NOT EXISTS agent_metrics (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    agent_id TEXT NOT NULL,
+    project TEXT NOT NULL,
+    session_id TEXT,
+    input_tokens INTEGER DEFAULT 0,
+    output_tokens INTEGER DEFAULT 0,
+    timestamp TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_agent_metrics_agent_id ON agent_metrics(agent_id);
+CREATE INDEX IF NOT EXISTS idx_agent_metrics_timestamp ON agent_metrics(timestamp);
+
+-- Agent status (tracks active/idle state)
+CREATE TABLE IF NOT EXISTS agent_status (
+    agent_id TEXT PRIMARY KEY,
+    project TEXT,
+    last_seen TEXT,
+    status TEXT DEFAULT 'active',
+    total_input_tokens INTEGER DEFAULT 0,
+    total_output_tokens INTEGER DEFAULT 0
+);
+
 -- Insert default config
 INSERT OR IGNORE INTO config (key, value) VALUES ('thresholds', '[50, 75, 90]');
 INSERT OR IGNORE INTO config (key, value) VALUES ('reminder_minutes', '15');

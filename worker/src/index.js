@@ -9,6 +9,7 @@ import { handleHistory } from './api/history';
 import { handleScheduleGet, handleSchedulePost } from './api/schedule';
 import { handleSessionStart } from './api/session';
 import { handleUsageLog, handleProjectsSummary, handleProjectsHistory, handleTokensSummary } from './api/projects';
+import { handleAgentHeartbeat, handleAgentsList, handleAgentDetails, handleAgentHistory, handleAgentsSummary } from './api/agents';
 import { runCron } from './cron/poll';
 import { handleCors, corsHeaders, errorResponse } from './utils/cors';
 
@@ -26,6 +27,17 @@ export default {
     const path = url.pathname;
 
     try {
+      // Handle dynamic agent routes first
+      const agentMatch = path.match(/^\/api\/agents\/([^\/]+)$/);
+      const agentHistoryMatch = path.match(/^\/api\/agents\/([^\/]+)\/history$/);
+
+      if (agentHistoryMatch && request.method === 'GET') {
+        return handleAgentHistory(request, env, agentHistoryMatch[1]);
+      }
+      if (agentMatch && request.method === 'GET') {
+        return handleAgentDetails(request, env, agentMatch[1]);
+      }
+
       // API Routes
       switch (path) {
         case '/api/usage':
@@ -75,6 +87,25 @@ export default {
         case '/api/tokens/summary':
           if (request.method === 'GET') {
             return handleTokensSummary(request, env);
+          }
+          break;
+
+        // Agent endpoints
+        case '/api/agent/heartbeat':
+          if (request.method === 'POST') {
+            return handleAgentHeartbeat(request, env);
+          }
+          break;
+
+        case '/api/agents':
+          if (request.method === 'GET') {
+            return handleAgentsList(request, env);
+          }
+          break;
+
+        case '/api/agents/summary':
+          if (request.method === 'GET') {
+            return handleAgentsSummary(request, env);
           }
           break;
 
