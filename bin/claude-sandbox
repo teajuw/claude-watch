@@ -12,8 +12,8 @@ CLAUDE_CREDS="$HOME/.claude/.credentials.json"
 # Load .env for Telegram credentials
 [ -f "$CLAUDE_WATCH_DIR/.env" ] && source "$CLAUDE_WATCH_DIR/.env"
 
-# Generate unique agent ID
-AGENT_ID="agent-$(date +%s | tail -c 6)"
+# Agent ID - defaults to 'teajuw', override with -a/--agent flag or AGENT_ID env
+AGENT_ID="${AGENT_ID:-teajuw}"
 
 # =============================================================================
 # Token Freshness Check
@@ -171,27 +171,37 @@ docker run --rm -v "$CLAUDE_DATA_VOLUME:/mnt/claude-data" \
   alpine sh -c "
     mkdir -p /mnt/claude-data/hooks
     cp /source/*.sh /mnt/claude-data/hooks/ 2>/dev/null || true
-    chmod +x /mnt/claude-data/hooks/*.sh 2>/dev/null || true
+    chmod 755 /mnt/claude-data/hooks/*.sh 2>/dev/null || true
+    chown -R 1000:1000 /mnt/claude-data/hooks 2>/dev/null || true
   "
 
-# Copy settings.json template (configures hooks)
-docker run --rm -v "$CLAUDE_DATA_VOLUME:/mnt/claude-data" \
-  alpine sh -c "cat > /mnt/claude-data/settings.json" << 'EOF'
+# Write agent ID to file (env vars get overridden by sandbox)
+docker run --rm -v "$CLAUDE_DATA_VOLUME:/mnt/claude-data" alpine sh -c "echo '$AGENT_ID' > /mnt/claude-data/agent-id"
+
+# Write settings.json to /mnt/claude-data/settings.json
+# The sandbox symlinks /home/agent/.claude/settings.json -> /mnt/claude-data/settings.json
+docker run --rm -v "$CLAUDE_DATA_VOLUME:/mnt/claude-data" alpine sh -c 'cat > /mnt/claude-data/settings.json << "EOF"
 {
-  "hooks": {
-    "Stop": [
-      {
-        "type": "command",
-        "command": "/mnt/claude-data/hooks/stop-hook.sh"
-      }
-    ]
-  },
   "statusLine": {
     "type": "command",
     "command": "/mnt/claude-data/hooks/statusline.sh"
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/mnt/claude-data/hooks/stop-hook.sh"
+          }
+        ]
+      }
+    ]
   }
 }
 EOF
+'
 
 echo "Starting Claude..."
 echo ""
