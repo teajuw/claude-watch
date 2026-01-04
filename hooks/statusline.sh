@@ -57,5 +57,5 @@ cat > "/tmp/claude-stats-${session_id}.json" << EOF
 }
 EOF
 
-# Display minimal status line for user: [agent] project | Model | context%
-printf "[%s] %s | %s | %d%%" "$agent_id" "$project" "$model_display" "$context_pct"
+# Display status line for user: [agent] project | Model | in/out tokens | context%
+printf "[%s] %s | %s | %d/%d | %d%%" "$agent_id" "$project" "$model_display" "$input_tokens" "$output_tokens" "$context_pct"

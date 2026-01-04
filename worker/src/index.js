@@ -6,7 +6,7 @@
 
 import { handleUsage } from './api/usage';
 import { handleHistory } from './api/history';
-import { handleUsageLog, handleProjectsSummary, handleProjectsHistory, handleTokensSummary } from './api/projects';
+import { handleUsageLog, handleProjectsSummary, handleProjectsHistory, handleTokensSummary, handleCostsSummary } from './api/projects';
 import { handleAgentHeartbeat, handleAgentsList, handleAgentDetails, handleAgentHistory, handleAgentsSummary } from './api/agents';
 import { handleTokenUpdate } from './api/tokens';
 import { runCron } from './cron/poll';
@@ -72,6 +72,12 @@ export default {
         case '/api/tokens/summary':
           if (request.method === 'GET') {
             return handleTokensSummary(request, env);
+          }
+          break;
+
+        case '/api/costs/summary':
+          if (request.method === 'GET') {
+            return handleCostsSummary(request, env);
           }
           break;
 

@@ -100,44 +100,23 @@
                 </div>
             </section>
 
-            <!-- Projects Section -->
-            <section class="projects-section">
-                <div class="section-header">
-                    <span class="prompt">$</span> ./projects --breakdown <select id="projects-range" class="range-select">
-                        <option value="24h">24h</option>
-                        <option value="7d" selected>7d</option>
-                        <option value="30d">30d</option>
-                    </select>
-                </div>
-                <div class="projects-container">
-                    <div class="pie-chart-container">
-                        <canvas id="projects-pie"></canvas>
-                    </div>
-                    <div class="projects-legend" id="projects-legend">
-                        <div class="legend-empty">No project data yet</div>
-                    </div>
-                </div>
-            </section>
-
             <!-- Cost Estimate Section -->
             <section class="cost-section">
                 <div class="section-header">
-                    <span class="prompt">$</span> ./cost --estimate
+                    <span class="prompt">$</span> ./cost --actual
                 </div>
                 <div class="cost-container">
                     <div class="cost-card">
-                        <div class="cost-label">THIS WEEK'S API EQUIVALENT</div>
+                        <div class="cost-label">THIS MONTH (ACTUAL)</div>
                         <div class="cost-value" id="cost-estimate">$0.00</div>
-                        <div class="cost-breakdown" id="cost-breakdown"></div>
                     </div>
                     <div class="cost-card">
                         <div class="cost-label">MONTHLY PROJECTION</div>
                         <div class="cost-value" id="monthly-estimate">$0.00</div>
                     </div>
                     <div class="cost-card savings">
-                        <div class="cost-label">SAVED VS API</div>
-                        <div class="cost-value positive" id="savings">$0.00</div>
-                        <div class="cost-note">Max subscription: $100/mo</div>
+                        <div class="cost-label">SAVINGS VS $200/MO</div>
+                        <div class="cost-value positive" id="savings">-$0.00</div>
                     </div>
                 </div>
             </section>
@@ -156,6 +135,10 @@
                             <option value="predict">Predict</option>
                         </select>
                     </span>
+                    <label class="pro-limit-toggle">
+                        <input type="checkbox" id="show-pro-limit">
+                        <span class="toggle-label">PRO LIMIT</span>
+                    </label>
                 </div>
                 <div class="chart-container">
                     <canvas id="history-chart"></canvas>
@@ -216,12 +199,26 @@
                 </section>
             </div><!-- End Agents Tab -->
 
-            <!-- Projects Tab Content (Placeholder) -->
+            <!-- Projects Tab Content -->
             <div id="tab-projects" class="tab-content">
-                <div class="placeholder-message">
-                    <span class="prompt">&gt;</span> Projects view coming soon...
-                    <span class="cursor">█</span>
-                </div>
+                <!-- Projects Breakdown -->
+                <section class="projects-section">
+                    <div class="section-header">
+                        <span class="prompt">$</span> ./projects --breakdown <select id="projects-range" class="range-select">
+                            <option value="24h">24h</option>
+                            <option value="7d" selected>7d</option>
+                            <option value="30d">30d</option>
+                        </select>
+                    </div>
+                    <div class="projects-container">
+                        <div class="pie-chart-container">
+                            <canvas id="projects-pie"></canvas>
+                        </div>
+                        <div class="projects-legend" id="projects-legend">
+                            <div class="legend-empty">No project data yet</div>
+                        </div>
+                    </div>
+                </section>
             </div><!-- End Projects Tab -->
         </main>
     </div>

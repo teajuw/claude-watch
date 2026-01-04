@@ -345,6 +345,11 @@ function showError(message) {
 // =============================================================================
 
 let historyChart = null;
+let showProLimit = false;
+
+// Pro plan has 1/5 the limits of Max 5x
+// So 20% usage on Max = 100% on Pro
+const PRO_LIMIT_PERCENTAGE = 20;
 
 function initChart() {
     const ctx = document.getElementById('history-chart');
@@ -365,6 +370,7 @@ function initChart() {
                     pointRadius: 3,
                     pointHoverRadius: 5,
                     pointBackgroundColor: '#E07A3E',
+                    order: 1,
                 },
                 {
                     label: '7-Day Rolling',
@@ -376,6 +382,19 @@ function initChart() {
                     pointRadius: 3,
                     pointHoverRadius: 5,
                     pointBackgroundColor: '#5BA3D9',
+                    order: 2,
+                },
+                {
+                    label: 'Pro Limit (20%)',
+                    data: [],
+                    borderColor: '#FACC15',
+                    borderWidth: 1,
+                    borderDash: [4, 4],
+                    pointRadius: 0,
+                    fill: false,
+                    tension: 0,
+                    hidden: true,
+                    order: 0,
                 },
             ],
         },
@@ -518,6 +537,10 @@ function updateChart(history, range) {
     historyChart.data.labels = slots.map(s => s.label);
     historyChart.data.datasets[0].data = slots.map(s => s.fiveHour);
     historyChart.data.datasets[1].data = slots.map(s => s.sevenDay);
+
+    // Pro limit line - horizontal line at 20% across all data points
+    historyChart.data.datasets[2].data = slots.map(() => PRO_LIMIT_PERCENTAGE);
+    historyChart.data.datasets[2].hidden = !showProLimit;
 
     // Configure chart to not connect across null gaps
     historyChart.options.spanGaps = false;
@@ -669,49 +692,49 @@ async function fetchTokensSummary(range = '7d') {
     }
 }
 
-function calculateCost(inputTokens, outputTokens) {
-    const inputCost = (inputTokens / 1_000_000) * PRICING.input;
-    const outputCost = (outputTokens / 1_000_000) * PRICING.output;
-    return { inputCost, outputCost, totalCost: inputCost + outputCost };
+async function fetchCostsSummary() {
+    if (CONFIG.localMode) {
+        return { total_cost: 0, projected_monthly: 0 };
+    }
+
+    try {
+        const response = await fetch(`${CONFIG.workerUrl}/api/costs/summary?range=month`);
+        if (!response.ok) return { total_cost: 0, projected_monthly: 0 };
+        const result = await response.json();
+        return result.data || { total_cost: 0, projected_monthly: 0 };
+    } catch (error) {
+        console.error('Failed to fetch costs summary:', error);
+        return { total_cost: 0, projected_monthly: 0 };
+    }
 }
 
-function updateCostEstimates(tokenData) {
+function updateCostEstimates(costData) {
     const costEl = document.getElementById('cost-estimate');
-    const breakdownEl = document.getElementById('cost-breakdown');
     const monthlyEl = document.getElementById('monthly-estimate');
     const savingsEl = document.getElementById('savings');
 
     if (!costEl) return;
 
-    const { total_input, total_output } = tokenData;
-    const { inputCost, outputCost, totalCost } = calculateCost(total_input, total_output);
+    const { total_cost, projected_monthly } = costData;
 
-    // Weekly API equivalent
-    costEl.textContent = `$${totalCost.toFixed(2)}`;
+    // This month's actual cost (from statusline cost_usd)
+    costEl.textContent = `$${(total_cost || 0).toFixed(2)}`;
 
-    // Breakdown
-    if (breakdownEl) {
-        breakdownEl.innerHTML = `
-            ${formatTokens(total_input)} input &times; $${PRICING.input}/1M = $${inputCost.toFixed(2)}<br>
-            ${formatTokens(total_output)} output &times; $${PRICING.output}/1M = $${outputCost.toFixed(2)}
-        `;
-    }
-
-    // Monthly projection (weekly cost * 4.33)
-    const monthlyProjection = totalCost * 4.33;
+    // Monthly projection
     if (monthlyEl) {
-        monthlyEl.textContent = `$${monthlyProjection.toFixed(2)}`;
+        monthlyEl.textContent = `$${(projected_monthly || 0).toFixed(2)}`;
     }
 
-    // Savings vs $100/month subscription
-    const savings = monthlyProjection - MAX_SUBSCRIPTION;
+    // Savings vs $200/month (Max subscription cost)
+    const subscriptionCost = 200;
+    const savings = subscriptionCost - (projected_monthly || 0);
     if (savingsEl) {
         if (savings > 0) {
-            savingsEl.textContent = `$${savings.toFixed(2)}`;
+            savingsEl.textContent = `-$${savings.toFixed(2)}`;
             savingsEl.className = 'cost-value positive';
         } else {
-            savingsEl.textContent = `-$${Math.abs(savings).toFixed(2)}`;
-            savingsEl.className = 'cost-value';
+            savingsEl.textContent = `+$${Math.abs(savings).toFixed(2)}`;
+            savingsEl.className = 'cost-value negative';
         }
     }
 }
@@ -721,21 +744,30 @@ function updateCostEstimates(tokenData) {
 // =============================================================================
 
 function linearRegression(data) {
-    const n = data.length;
+    // Filter out null/undefined values and keep track of original indices
+    const validPoints = [];
+    data.forEach((point, i) => {
+        if (point !== null && point !== undefined && !isNaN(point)) {
+            validPoints.push({ x: i, y: point });
+        }
+    });
+
+    const n = validPoints.length;
     if (n < 2) return { slope: 0, intercept: 0 };
 
     let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
 
-    data.forEach((point, i) => {
-        const x = i;
-        const y = point;
+    validPoints.forEach(({ x, y }) => {
         sumX += x;
         sumY += y;
         sumXY += x * y;
         sumX2 += x * x;
     });
 
-    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+    const denominator = n * sumX2 - sumX * sumX;
+    if (denominator === 0) return { slope: 0, intercept: sumY / n };
+
+    const slope = (n * sumXY - sumX * sumY) / denominator;
     const intercept = (sumY - slope * sumX) / n;
 
     return { slope, intercept };
@@ -746,30 +778,39 @@ function calculateProjection(data, mode, stepsAhead = 10) {
         return [];
     }
 
+    // Filter out null/undefined values for processing
+    const validData = data.filter(d => d !== null && d !== undefined && !isNaN(d));
+    if (validData.length < 2) {
+        return [];
+    }
+
     let sourceData;
     if (mode === 'extrapolate') {
-        // Use last 20% of data for recent trend
-        const recentCount = Math.max(2, Math.floor(data.length * 0.2));
-        sourceData = data.slice(-recentCount);
+        // Use last 20% of valid data for recent trend
+        const recentCount = Math.max(2, Math.floor(validData.length * 0.2));
+        sourceData = validData.slice(-recentCount);
     } else {
-        // 'predict' - use all data
-        sourceData = data;
+        // 'predict' - use all valid data
+        sourceData = validData;
     }
 
     const { slope, intercept } = linearRegression(sourceData);
 
+    // Get the last valid data point for extrapolation
+    const lastValidValue = validData[validData.length - 1];
+    const lastValidIndex = data.lastIndexOf(lastValidValue);
+
     // Project forward
     const projected = [];
-    const startIdx = data.length - 1;
 
     for (let i = 1; i <= stepsAhead; i++) {
         let value;
         if (mode === 'extrapolate') {
-            // Continue from last point with recent slope
-            value = data[data.length - 1] + slope * i;
+            // Continue from last valid point with recent slope
+            value = lastValidValue + slope * i;
         } else {
-            // Use full regression
-            value = slope * (startIdx + i) + intercept;
+            // Use full regression from last valid index
+            value = slope * (lastValidIndex + i) + intercept;
         }
         // Clamp to 0-100
         projected.push(Math.min(100, Math.max(0, value)));
@@ -781,14 +822,14 @@ function calculateProjection(data, mode, stepsAhead = 10) {
 function updateChartWithProjection(history, range, projectionMode) {
     if (!historyChart || !history || history.length === 0) return;
 
-    // First, update regular chart data
+    // First, update regular chart data (this also updates Pro limit at index 2)
     updateChart(history, range);
 
-    // If no projection, remove projection datasets
+    // If no projection, remove projection datasets (keep first 3: 5hr, 7day, pro limit)
     if (projectionMode === 'none') {
-        // Remove projection datasets if they exist
-        if (historyChart.data.datasets.length > 2) {
-            historyChart.data.datasets = historyChart.data.datasets.slice(0, 2);
+        // Remove projection datasets if they exist (keep indices 0, 1, 2)
+        if (historyChart.data.datasets.length > 3) {
+            historyChart.data.datasets = historyChart.data.datasets.slice(0, 3);
             historyChart.update('none');
         }
         return;
@@ -797,17 +838,19 @@ function updateChartWithProjection(history, range, projectionMode) {
     // Calculate projections
     const fiveHourData = historyChart.data.datasets[0].data;
     const sevenDayData = historyChart.data.datasets[1].data;
+    const proLimitData = historyChart.data.datasets[2].data;
 
     const fiveHourProjected = calculateProjection(fiveHourData, projectionMode, 5);
     const sevenDayProjected = calculateProjection(sevenDayData, projectionMode, 5);
 
     // Add projected labels
-    const lastLabel = historyChart.data.labels[historyChart.data.labels.length - 1] || '';
     const projectedLabels = fiveHourProjected.map((_, i) => `+${i + 1}`);
 
     // Pad actual data with nulls for projection zone
     const paddedFiveHour = [...fiveHourData, ...Array(fiveHourProjected.length).fill(null)];
     const paddedSevenDay = [...sevenDayData, ...Array(sevenDayProjected.length).fill(null)];
+    // Extend Pro limit line across projection zone
+    const extendedProLimit = [...proLimitData, ...Array(fiveHourProjected.length).fill(PRO_LIMIT_PERCENTAGE)];
 
     // Create projection data (nulls for actual, then projected values)
     const fiveHourProjData = [...Array(fiveHourData.length).fill(null), ...fiveHourProjected];
@@ -816,12 +859,13 @@ function updateChartWithProjection(history, range, projectionMode) {
     // Update labels
     historyChart.data.labels = [...historyChart.data.labels, ...projectedLabels];
 
-    // Update datasets
+    // Update datasets (0: 5hr, 1: 7day, 2: pro limit)
     historyChart.data.datasets[0].data = paddedFiveHour;
     historyChart.data.datasets[1].data = paddedSevenDay;
+    historyChart.data.datasets[2].data = extendedProLimit;
 
-    // Add or update projection datasets
-    if (historyChart.data.datasets.length === 2) {
+    // Add or update projection datasets (indices 3 and 4)
+    if (historyChart.data.datasets.length === 3) {
         historyChart.data.datasets.push({
             label: '5-Hour Projected',
             data: fiveHourProjData,
@@ -831,6 +875,7 @@ function updateChartWithProjection(history, range, projectionMode) {
             pointRadius: 0,
             fill: false,
             tension: 0,
+            order: 3,
         });
         historyChart.data.datasets.push({
             label: '7-Day Projected',
@@ -841,10 +886,11 @@ function updateChartWithProjection(history, range, projectionMode) {
             pointRadius: 0,
             fill: false,
             tension: 0,
+            order: 4,
         });
     } else {
-        historyChart.data.datasets[2].data = fiveHourProjData;
-        historyChart.data.datasets[3].data = sevenDayProjData;
+        historyChart.data.datasets[3].data = fiveHourProjData;
+        historyChart.data.datasets[4].data = sevenDayProjData;
     }
 
     historyChart.update('none');
@@ -1114,16 +1160,16 @@ async function fetchData() {
     console.log('Fetching usage data...');
 
     try {
-        // Fetch current usage, history, projects, and tokens in parallel
+        // Fetch current usage, history, projects, and costs in parallel
         const range = document.getElementById('history-range')?.value || '7d';
         const projectsRange = document.getElementById('projects-range')?.value || '7d';
         const projectionMode = document.getElementById('projection-mode')?.value || 'none';
 
-        const [currentUsage, history, projects, tokens] = await Promise.all([
+        const [currentUsage, history, projects, costs] = await Promise.all([
             fetchCurrentUsage(),
             fetchUsageHistory(range),
             fetchProjectsSummary(projectsRange),
-            fetchTokensSummary(projectsRange),
+            fetchCostsSummary(),
         ]);
 
         if (!currentUsage && history.length === 0) {
@@ -1155,8 +1201,8 @@ async function fetchData() {
         // Update projects pie chart
         updateProjectsPieChart(projects);
 
-        // Update cost estimates
-        updateCostEstimates(tokens);
+        // Update cost estimates (using actual costs from hooks)
+        updateCostEstimates(costs);
 
         console.log('Data updated successfully');
     } catch (error) {
@@ -1248,17 +1294,25 @@ function init() {
         });
     }
 
+    // Pro limit toggle handler
+    const proLimitToggle = document.getElementById('show-pro-limit');
+    if (proLimitToggle) {
+        proLimitToggle.addEventListener('change', () => {
+            showProLimit = proLimitToggle.checked;
+            if (historyChart && historyChart.data.datasets[2]) {
+                historyChart.data.datasets[2].hidden = !showProLimit;
+                historyChart.update('none');
+            }
+        });
+    }
+
     // Projects range select handler
     const projectsRangeSelect = document.getElementById('projects-range');
     if (projectsRangeSelect) {
         projectsRangeSelect.addEventListener('change', async () => {
             try {
-                const [projects, tokens] = await Promise.all([
-                    fetchProjectsSummary(projectsRangeSelect.value),
-                    fetchTokensSummary(projectsRangeSelect.value),
-                ]);
+                const projects = await fetchProjectsSummary(projectsRangeSelect.value);
                 updateProjectsPieChart(projects);
-                updateCostEstimates(tokens);
             } catch (error) {
                 console.error('Failed to update projects:', error);
             }
