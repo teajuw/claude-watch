@@ -28,7 +28,7 @@ jobs:
       - name: Checkout polling script from main
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: master
           path: main-branch
           sparse-checkout: |
             poll-usage.py
