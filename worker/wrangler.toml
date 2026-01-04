@@ -1,0 +1,21 @@
+name = "claude-watch"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+[triggers]
+crons = ["* * * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "claude-watch-db"
+database_id = "654388d7-c5d2-40ca-a02f-53fc982b99c5"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "4b55acfc702f4698b53c5f1219edf63d"
+
+# Secrets (add via: wrangler secret put SECRET_NAME)
+# - CLAUDE_ACCESS_TOKEN
+# - CLAUDE_REFRESH_TOKEN
+# - TELEGRAM_BOT_TOKEN
+# - TELEGRAM_CHAT_ID

@@ -7,13 +7,11 @@
 // Configuration
 // =============================================================================
 
-// Update this to your GitHub username and repo name
+// Update this to your Cloudflare Worker URL
 const CONFIG = {
-    // GitHub raw URL for data branch
-    // Format: https://raw.githubusercontent.com/{user}/{repo}/data/{file}
-    dataBaseUrl: '', // Set during init
-    githubUser: 'teajuw',
-    githubRepo: 'claude-watch',
+    // Cloudflare Worker URL (update after deployment)
+    // Format: https://claude-watch.<your-subdomain>.workers.dev
+    workerUrl: '', // Set during init or via ?worker= param
     refreshInterval: 60000, // 1 minute
     localMode: false, // Set via ?local=true for testing
 };
@@ -175,32 +173,69 @@ function formatTimestamp(isoString) {
 // Data Fetching
 // =============================================================================
 
-async function fetchUsageHistory() {
-    let url;
+async function fetchUsageHistory(range = '7d') {
     if (CONFIG.localMode) {
-        url = `./usage-history.json?t=${Date.now()}`;
-    } else {
-        url = `https://raw.githubusercontent.com/${CONFIG.githubUser}/${CONFIG.githubRepo}/data/usage-history.json?t=${Date.now()}`;
+        const response = await fetch(`./usage-history.json?t=${Date.now()}`);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch usage history: ${response.status}`);
+        }
+        return response.json();
     }
-    const response = await fetch(url);
+
+    const response = await fetch(`${CONFIG.workerUrl}/api/history?range=${range}`);
     if (!response.ok) {
         throw new Error(`Failed to fetch usage history: ${response.status}`);
     }
-    return response.json();
+    const result = await response.json();
+    return result.data || [];
 }
 
-async function fetchState() {
-    let url;
+async function fetchCurrentUsage() {
     if (CONFIG.localMode) {
-        url = `./state.json?t=${Date.now()}`;
-    } else {
-        url = `https://raw.githubusercontent.com/${CONFIG.githubUser}/${CONFIG.githubRepo}/data/state.json?t=${Date.now()}`;
+        // In local mode, get latest from history
+        const history = await fetchUsageHistory();
+        return history.length > 0 ? history[history.length - 1] : null;
     }
-    const response = await fetch(url);
+
+    const response = await fetch(`${CONFIG.workerUrl}/api/usage`);
     if (!response.ok) {
-        throw new Error(`Failed to fetch state: ${response.status}`);
+        throw new Error(`Failed to fetch current usage: ${response.status}`);
     }
-    return response.json();
+    const result = await response.json();
+    return {
+        timestamp: result.timestamp,
+        five_hour: result.data?.five_hour,
+        seven_day: result.data?.seven_day,
+    };
+}
+
+async function startSessionNow() {
+    if (CONFIG.localMode) {
+        showError('Session start not available in local mode');
+        return;
+    }
+
+    try {
+        const response = await fetch(`${CONFIG.workerUrl}/api/session/start`, {
+            method: 'POST',
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            const endsAt = new Date(result.ends_at);
+            const quipEl = document.getElementById('quip');
+            if (quipEl) {
+                quipEl.textContent = `Session started! Ends at ${endsAt.toLocaleTimeString()}`;
+            }
+            // Refresh data
+            await fetchData();
+        } else {
+            showError(result.error || 'Failed to start session');
+        }
+    } catch (error) {
+        console.error('Session start error:', error);
+        showError(error.message);
+    }
 }
 
 // =============================================================================
@@ -414,15 +449,20 @@ async function fetchData() {
     console.log('Fetching usage data...');
 
     try {
-        const history = await fetchUsageHistory();
+        // Fetch current usage and history in parallel
+        const range = document.getElementById('history-range')?.value || '7d';
+        const [currentUsage, history] = await Promise.all([
+            fetchCurrentUsage(),
+            fetchUsageHistory(range),
+        ]);
 
-        if (history.length === 0) {
+        if (!currentUsage && history.length === 0) {
             showError('No data yet');
             return;
         }
 
-        // Get latest entry
-        latestData = history[history.length - 1];
+        // Use current usage if available, fall back to latest history entry
+        latestData = currentUsage || history[history.length - 1];
 
         // Update UI
         const fiveHour = latestData.five_hour || {};
@@ -438,7 +478,6 @@ async function fetchData() {
         updateLastUpdated(latestData.timestamp);
 
         // Update chart
-        const range = document.getElementById('history-range')?.value || '7d';
         updateChart(history, range);
 
         console.log('Data updated successfully');
@@ -466,16 +505,22 @@ function init() {
 
     // Check for config in URL params (for easy setup)
     const params = new URLSearchParams(window.location.search);
-    if (params.get('user')) {
-        CONFIG.githubUser = params.get('user');
+
+    // Worker URL - required for production
+    if (params.get('worker')) {
+        CONFIG.workerUrl = params.get('worker');
+    } else {
+        // Default worker URL
+        CONFIG.workerUrl = 'https://claude-watch.trevorju32.workers.dev';
     }
-    if (params.get('repo')) {
-        CONFIG.githubRepo = params.get('repo');
-    }
+
+    // Local mode for testing
     if (params.get('local') === 'true') {
         CONFIG.localMode = true;
         console.log('Local mode enabled - fetching from local files');
     }
+
+    console.log(`Worker URL: ${CONFIG.workerUrl}`);
 
     // Initialize chart
     initChart();
@@ -494,7 +539,7 @@ function init() {
     if (rangeSelect) {
         rangeSelect.addEventListener('change', async () => {
             try {
-                const history = await fetchUsageHistory();
+                const history = await fetchUsageHistory(rangeSelect.value);
                 updateChart(history, rangeSelect.value);
             } catch (error) {
                 console.error('Failed to update chart:', error);

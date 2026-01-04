@@ -1,0 +1,13 @@
+{
+  "name": "claude-watch-worker",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker for Claude usage monitoring",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:init": "wrangler d1 execute claude-watch-db --file=schema.sql"
+  },
+  "keywords": ["cloudflare", "worker", "claude"],
+  "license": "MIT"
+}

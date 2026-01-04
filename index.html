@@ -94,15 +94,16 @@
                 </div>
             </section>
 
-            <!-- Last Updated -->
+            <!-- Footer Actions -->
             <div class="footer">
                 <span class="label">LAST SYNC:</span>
                 <span id="last-updated">Never</span>
                 <span class="separator">|</span>
-                <span class="label">NEXT POLL:</span>
-                <span id="next-poll">~5 min</span>
+                <button class="action-btn" onclick="fetchData()">[ REFRESH ]</button>
                 <span class="separator">|</span>
-                <button class="refresh-btn" onclick="fetchData()">[ REFRESH ]</button>
+                <button class="action-btn session-btn" onclick="startSessionNow()">[ START SESSION ]</button>
+                <span class="separator">|</span>
+                <a href="schedule.html" class="action-btn schedule-link">[ SCHEDULE ]</a>
             </div>
         </main>
     </div>

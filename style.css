@@ -353,3 +353,364 @@ body {
         font-size: 1.25rem;
     }
 }
+
+/* =============================================================================
+   Action Buttons (replaces refresh-btn for consistency)
+   ============================================================================= */
+
+.action-btn {
+    background: transparent;
+    border: 1px solid var(--claude-orange-dim);
+    color: var(--claude-orange);
+    padding: var(--space-xs) var(--space-sm);
+    font-family: inherit;
+    font-size: 0.75rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.action-btn:hover {
+    background: var(--claude-orange);
+    color: var(--bg-dark);
+    border-color: var(--claude-orange);
+}
+
+.action-btn.small {
+    font-size: 0.65rem;
+    padding: 2px 6px;
+}
+
+.action-btn.save-btn {
+    border-color: var(--status-low);
+    color: var(--status-low);
+}
+
+.action-btn.save-btn:hover {
+    background: var(--status-low);
+    color: var(--bg-dark);
+}
+
+.action-btn.delete-btn {
+    border-color: var(--status-critical);
+    color: var(--status-critical);
+}
+
+.action-btn.delete-btn:hover {
+    background: var(--status-critical);
+    color: var(--bg-dark);
+}
+
+.session-btn {
+    border-color: var(--status-medium);
+    color: var(--status-medium);
+}
+
+.session-btn:hover {
+    background: var(--status-medium);
+    color: var(--bg-dark);
+}
+
+.schedule-link {
+    border-color: #5BA3D9;
+    color: #5BA3D9;
+}
+
+.schedule-link:hover {
+    background: #5BA3D9;
+    color: var(--bg-dark);
+}
+
+/* =============================================================================
+   Schedule Page Styles
+   ============================================================================= */
+
+.page-title {
+    color: var(--claude-orange);
+    font-size: 1.25rem;
+    margin-bottom: var(--space-sm);
+}
+
+/* Timeline Section */
+.timeline-section {
+    margin-bottom: var(--space-xl);
+}
+
+.hint {
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    margin-left: var(--space-md);
+}
+
+.timeline-container {
+    background: var(--bg-card);
+    border: 1px solid var(--claude-orange-dim);
+    border-radius: 4px;
+    padding: var(--space-lg);
+    margin-bottom: var(--space-md);
+}
+
+.timeline-wrapper {
+    position: relative;
+    height: 60px;
+    margin-bottom: var(--space-sm);
+}
+
+.timeline {
+    display: flex;
+    height: 40px;
+    background: var(--bg-dark);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.timeline-segment {
+    flex: 1;
+    border-right: 1px solid rgba(128, 128, 128, 0.2);
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.timeline-segment:last-child {
+    border-right: none;
+}
+
+.timeline-segment:hover {
+    background: var(--claude-orange-glow);
+}
+
+.timeline-sessions {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 40px;
+    pointer-events: none;
+}
+
+.session-block {
+    position: absolute;
+    top: 4px;
+    height: 32px;
+    background: linear-gradient(135deg, var(--claude-orange), var(--claude-orange-dim));
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: auto;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(224, 122, 62, 0.3);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    overflow: hidden;
+}
+
+.session-block:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(224, 122, 62, 0.5);
+}
+
+.session-block-label {
+    color: var(--bg-dark);
+    font-size: 0.65rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0 4px;
+}
+
+.timeline-hours {
+    display: flex;
+    margin-top: var(--space-xs);
+}
+
+.timeline-hour-label {
+    flex: 1;
+    text-align: center;
+    font-size: 0.6rem;
+    color: var(--text-dim);
+}
+
+.timeline-hint {
+    color: var(--text-dim);
+    font-size: 0.75rem;
+}
+
+/* Sessions List */
+.sessions-section {
+    margin-bottom: var(--space-xl);
+}
+
+.session-list {
+    background: var(--bg-card);
+    border: 1px solid var(--claude-orange-dim);
+    border-radius: 4px;
+    padding: var(--space-md);
+}
+
+.no-sessions {
+    color: var(--text-dim);
+    text-align: center;
+    padding: var(--space-lg);
+    font-style: italic;
+}
+
+.session-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-sm) var(--space-md);
+    border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+    gap: var(--space-md);
+}
+
+.session-item:last-child {
+    border-bottom: none;
+}
+
+.session-item.disabled {
+    opacity: 0.5;
+}
+
+.session-time {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    min-width: 140px;
+}
+
+.session-start {
+    color: var(--claude-orange);
+    font-weight: 600;
+}
+
+.session-arrow {
+    color: var(--text-dim);
+}
+
+.session-end {
+    color: var(--text-dim);
+}
+
+.session-label {
+    flex: 1;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.session-actions {
+    display: flex;
+    gap: var(--space-xs);
+}
+
+/* Modal */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1001;
+}
+
+.modal.hidden {
+    display: none;
+}
+
+.modal-content {
+    background: var(--bg-card);
+    border: 1px solid var(--claude-orange);
+    border-radius: 4px;
+    padding: var(--space-lg);
+    min-width: 300px;
+    max-width: 400px;
+    box-shadow: 0 0 30px var(--claude-orange-glow);
+}
+
+.modal-header {
+    color: var(--claude-orange);
+    font-size: 1rem;
+    margin-bottom: var(--space-lg);
+    border-bottom: 1px solid var(--claude-orange-dim);
+    padding-bottom: var(--space-sm);
+}
+
+.modal-body {
+    margin-bottom: var(--space-lg);
+}
+
+.form-group {
+    margin-bottom: var(--space-md);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.form-group .label {
+    min-width: 100px;
+}
+
+.text-input {
+    background: var(--bg-dark);
+    border: 1px solid var(--claude-orange-dim);
+    color: var(--text-primary);
+    padding: var(--space-xs) var(--space-sm);
+    font-family: inherit;
+    font-size: 0.875rem;
+    border-radius: 4px;
+    flex: 1;
+}
+
+.text-input:focus {
+    outline: none;
+    border-color: var(--claude-orange);
+}
+
+.modal-footer {
+    display: flex;
+    gap: var(--space-sm);
+    justify-content: flex-end;
+}
+
+/* Status Labels */
+.label.success {
+    color: var(--status-low);
+}
+
+.label.error {
+    color: var(--status-critical);
+}
+
+/* Responsive - Schedule */
+@media (max-width: 600px) {
+    .session-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-sm);
+    }
+
+    .session-time {
+        min-width: auto;
+    }
+
+    .session-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+
+    .timeline-hour-label {
+        font-size: 0.5rem;
+    }
+
+    .timeline-hour-label:nth-child(odd) {
+        visibility: hidden;
+    }
+}
