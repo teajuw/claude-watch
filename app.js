@@ -327,7 +327,7 @@ function updateQuip(utilization, isIdle = false) {
 }
 
 function updateLastUpdated(timestamp) {
-    const el = document.getElementById('last-updated');
+    const el = document.getElementById('last-updated-nav');
     if (el && timestamp) {
         el.textContent = formatTimestamp(timestamp);
     }

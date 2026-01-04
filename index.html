@@ -27,8 +27,15 @@
 
         <!-- Tab Navigation -->
         <nav class="tab-nav">
-            <button class="tab-btn active" data-tab="user" onclick="switchTab('user')">[ USER ]</button>
-            <button class="tab-btn" data-tab="agents" onclick="switchTab('agents')">[ AGENTS ]</button>
+            <div class="tab-buttons">
+                <button class="tab-btn active" data-tab="user" onclick="switchTab('user')">[ USER ]</button>
+                <button class="tab-btn" data-tab="projects" onclick="switchTab('projects')">[ PROJECTS ]</button>
+                <button class="tab-btn" data-tab="agents" onclick="switchTab('agents')">[ AGENTS ]</button>
+            </div>
+            <div class="tab-actions">
+                <button class="action-btn" onclick="fetchData()">[ ↻ ]</button>
+                <span class="sync-status"><span class="label">SYNC:</span> <span id="last-updated-nav">Never</span></span>
+            </div>
         </nav>
 
         <main class="terminal-body">
@@ -204,13 +211,13 @@
                 </section>
             </div><!-- End Agents Tab -->
 
-            <!-- Footer Actions -->
-            <div class="footer">
-                <span class="label">LAST SYNC:</span>
-                <span id="last-updated">Never</span>
-                <span class="separator">|</span>
-                <button class="action-btn" onclick="fetchData()">[ REFRESH ]</button>
-            </div>
+            <!-- Projects Tab Content (Placeholder) -->
+            <div id="tab-projects" class="tab-content">
+                <div class="placeholder-message">
+                    <span class="prompt">&gt;</span> Projects view coming soon...
+                    <span class="cursor">█</span>
+                </div>
+            </div><!-- End Projects Tab -->
         </main>
     </div>
 

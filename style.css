@@ -882,10 +882,36 @@ body {
 
 .tab-nav {
     display: flex;
-    gap: var(--space-md);
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: var(--space-lg);
     border-bottom: 1px solid var(--claude-orange-dim);
     padding-bottom: var(--space-sm);
+}
+
+.tab-buttons {
+    display: flex;
+    gap: var(--space-md);
+}
+
+.tab-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.tab-actions .action-btn {
+    padding: var(--space-xs) var(--space-sm);
+    font-size: 0.875rem;
+}
+
+.sync-status {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+}
+
+.sync-status .label {
+    color: var(--text-secondary);
 }
 
 .tab-btn {
@@ -915,6 +941,13 @@ body {
 
 .tab-content.active {
     display: block;
+}
+
+.placeholder-message {
+    padding: var(--space-xl);
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 1.1rem;
 }
 
 /* =============================================================================
