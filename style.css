@@ -724,3 +724,154 @@ body {
         visibility: hidden;
     }
 }
+
+/* =============================================================================
+   Projects Section - Pie Chart
+   ============================================================================= */
+
+.projects-section {
+    margin-bottom: var(--space-xl);
+}
+
+.projects-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-lg);
+    background: var(--bg-card);
+    border: 1px solid var(--claude-orange-dim);
+    border-radius: 4px;
+    padding: var(--space-lg);
+}
+
+@media (max-width: 600px) {
+    .projects-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+.pie-chart-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+}
+
+.projects-legend {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--space-sm);
+}
+
+.legend-empty {
+    color: var(--text-dim);
+    font-style: italic;
+    text-align: center;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-size: 0.875rem;
+}
+
+.legend-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.legend-label {
+    flex: 1;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.legend-value {
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    min-width: 60px;
+    text-align: right;
+}
+
+.legend-pct {
+    color: var(--claude-orange);
+    font-weight: 600;
+    min-width: 45px;
+    text-align: right;
+}
+
+/* =============================================================================
+   Cost Estimate Section
+   ============================================================================= */
+
+.cost-section {
+    margin-bottom: var(--space-xl);
+}
+
+.cost-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-lg);
+}
+
+@media (max-width: 700px) {
+    .cost-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+.cost-card {
+    background: var(--bg-card);
+    border: 1px solid var(--claude-orange-dim);
+    border-radius: 4px;
+    padding: var(--space-lg);
+    text-align: center;
+}
+
+.cost-card.savings {
+    border-color: var(--status-low);
+}
+
+.cost-label {
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    margin-bottom: var(--space-sm);
+}
+
+.cost-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--claude-orange);
+}
+
+.cost-value.positive {
+    color: var(--status-low);
+}
+
+.cost-breakdown {
+    color: var(--text-dim);
+    font-size: 0.65rem;
+    margin-top: var(--space-sm);
+}
+
+.cost-note {
+    color: var(--text-dim);
+    font-size: 0.65rem;
+    margin-top: var(--space-sm);
+}
+
+/* =============================================================================
+   Projection Toggle
+   ============================================================================= */
+
+.projection-toggle {
+    display: inline;
+    color: var(--text-dim);
+    font-size: 0.875rem;
+}

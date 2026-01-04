@@ -8,6 +8,7 @@ import { handleUsage } from './api/usage';
 import { handleHistory } from './api/history';
 import { handleScheduleGet, handleSchedulePost } from './api/schedule';
 import { handleSessionStart } from './api/session';
+import { handleUsageLog, handleProjectsSummary, handleProjectsHistory, handleTokensSummary } from './api/projects';
 import { runCron } from './cron/poll';
 import { handleCors, corsHeaders, errorResponse } from './utils/cors';
 
@@ -50,6 +51,30 @@ export default {
         case '/api/session/start':
           if (request.method === 'POST') {
             return handleSessionStart(env);
+          }
+          break;
+
+        case '/api/usage/log':
+          if (request.method === 'POST') {
+            return handleUsageLog(request, env);
+          }
+          break;
+
+        case '/api/projects/summary':
+          if (request.method === 'GET') {
+            return handleProjectsSummary(request, env);
+          }
+          break;
+
+        case '/api/projects/history':
+          if (request.method === 'GET') {
+            return handleProjectsHistory(request, env);
+          }
+          break;
+
+        case '/api/tokens/summary':
+          if (request.method === 'GET') {
+            return handleTokensSummary(request, env);
           }
           break;
 

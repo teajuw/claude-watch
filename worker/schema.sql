@@ -32,6 +32,18 @@ CREATE TABLE IF NOT EXISTS config (
     value TEXT
 );
 
+-- Per-project usage tracking (from Stop hook)
+CREATE TABLE IF NOT EXISTS project_usage (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT,
+    project TEXT NOT NULL,
+    input_tokens INTEGER DEFAULT 0,
+    output_tokens INTEGER DEFAULT 0,
+    timestamp TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_project_usage_project ON project_usage(project);
+CREATE INDEX IF NOT EXISTS idx_project_usage_timestamp ON project_usage(timestamp);
+
 -- Insert default config
 INSERT OR IGNORE INTO config (key, value) VALUES ('thresholds', '[50, 75, 90]');
 INSERT OR IGNORE INTO config (key, value) VALUES ('reminder_minutes', '15');

@@ -80,14 +80,62 @@
                 </div>
             </section>
 
-            <!-- History Section -->
-            <section class="history-section">
+            <!-- Projects Section -->
+            <section class="projects-section">
                 <div class="section-header">
-                    <span class="prompt">$</span> ./history --range <select id="history-range" class="range-select">
+                    <span class="prompt">$</span> ./projects --breakdown <select id="projects-range" class="range-select">
                         <option value="24h">24h</option>
                         <option value="7d" selected>7d</option>
                         <option value="30d">30d</option>
                     </select>
+                </div>
+                <div class="projects-container">
+                    <div class="pie-chart-container">
+                        <canvas id="projects-pie"></canvas>
+                    </div>
+                    <div class="projects-legend" id="projects-legend">
+                        <div class="legend-empty">No project data yet</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Cost Estimate Section -->
+            <section class="cost-section">
+                <div class="section-header">
+                    <span class="prompt">$</span> ./cost --estimate
+                </div>
+                <div class="cost-container">
+                    <div class="cost-card">
+                        <div class="cost-label">THIS WEEK'S API EQUIVALENT</div>
+                        <div class="cost-value" id="cost-estimate">$0.00</div>
+                        <div class="cost-breakdown" id="cost-breakdown"></div>
+                    </div>
+                    <div class="cost-card">
+                        <div class="cost-label">MONTHLY PROJECTION</div>
+                        <div class="cost-value" id="monthly-estimate">$0.00</div>
+                    </div>
+                    <div class="cost-card savings">
+                        <div class="cost-label">SAVED VS API</div>
+                        <div class="cost-value positive" id="savings">$0.00</div>
+                        <div class="cost-note">Max subscription: $100/mo</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- History Section -->
+            <section class="history-section">
+                <div class="section-header">
+                    <span class="prompt">$</span> ./history --window <select id="history-range" class="range-select">
+                        <option value="5h">5-Hour</option>
+                        <option value="7d" selected>7-Day</option>
+                    </select>
+                    <span class="projection-toggle">
+                        | PROJECTION: <select id="projection-mode" class="range-select">
+                            <option value="none">None</option>
+                            <option value="extrapolate" selected>Extrapolate</option>
+                            <option value="predict">Predict</option>
+                        </select>
+                    </span>
                 </div>
                 <div class="chart-container">
                     <canvas id="history-chart"></canvas>
