@@ -1474,7 +1474,7 @@ function renderLogDetail(log) {
     const details = [];
 
     if (log.id) details.push({ label: 'ID', value: log.id });
-    if (log.timestamp) details.push({ label: 'Timestamp', value: new Date(log.timestamp).toLocaleString() });
+    if (log.timestamp) details.push({ label: 'Timestamp', value: new Date(log.timestamp).toLocaleString('en-US', { timeZone: CONFIG.timezone }) });
     if (log.session_id) details.push({ label: 'Session', value: log.session_id });
     if (log.model) details.push({ label: 'Model', value: log.model });
     if (log.input_tokens) details.push({ label: 'Input', value: `${log.input_tokens.toLocaleString()} tokens` });
