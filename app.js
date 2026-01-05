@@ -345,7 +345,7 @@ function showError(message) {
 // =============================================================================
 
 let historyChart = null;
-let showProLimit = false;
+// Pro limit is always visible in legend, user can toggle via clicking legend
 
 // Pro plan has 1/5 the limits of Max 5x
 // So 20% usage on Max = 100% on Pro
@@ -393,7 +393,7 @@ function initChart() {
                     pointRadius: 0,
                     fill: false,
                     tension: 0,
-                    hidden: true,
+                    hidden: false,
                     order: 0,
                 },
             ],
@@ -456,6 +456,32 @@ function initChart() {
     });
 }
 
+// Round time to nearest 15 minutes
+function roundToNearest15Min(date) {
+    const ms = 15 * 60 * 1000;
+    return new Date(Math.round(date.getTime() / ms) * ms);
+}
+
+// Format time as "4:15 PM"
+function formatTime(date) {
+    return date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: 'America/Los_Angeles',
+    });
+}
+
+// Format date as "Mon 1/5"
+function formatDayDate(date) {
+    return date.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'numeric',
+        day: 'numeric',
+        timeZone: 'America/Los_Angeles',
+    });
+}
+
 function updateChart(history, range) {
     if (!historyChart || !history || history.length === 0) return;
 
@@ -466,66 +492,78 @@ function updateChart(history, range) {
 
     const now = new Date();
 
-    // Calculate window starts
+    // Calculate window boundaries based on reset times
     const fiveHourStart = fiveHourReset ? new Date(fiveHourReset - 5 * 60 * 60 * 1000) : new Date(now - 5 * 60 * 60 * 1000);
     const sevenDayStart = sevenDayReset ? new Date(sevenDayReset - 7 * 24 * 60 * 60 * 1000) : new Date(now - 7 * 24 * 60 * 60 * 1000);
 
-    // Determine which window to use based on range
-    let windowStart, windowEnd, windowDuration, isHourly;
+    let windowStart, windowEnd, isHourly;
 
-    if (range === '24h' || range === '5h') {
-        // Use 5-hour window
-        windowStart = fiveHourStart;
-        windowEnd = fiveHourReset || new Date(now.getTime() + 5 * 60 * 60 * 1000);
-        windowDuration = 5 * 60 * 60 * 1000; // 5 hours in ms
+    if (range === '5h') {
+        // 5-hour window: round to 15 min intervals
+        windowStart = roundToNearest15Min(fiveHourStart);
+        windowEnd = roundToNearest15Min(fiveHourReset || new Date(now.getTime() + 5 * 60 * 60 * 1000));
         isHourly = true;
     } else {
-        // Use 7-day window for 7d and 30d
+        // 7-day window
         windowStart = sevenDayStart;
         windowEnd = sevenDayReset || new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-        windowDuration = 7 * 24 * 60 * 60 * 1000; // 7 days in ms
         isHourly = false;
     }
 
-    // Generate fixed time slots for the X-axis
+    // Generate slots for X-axis
     const slots = [];
-    const slotCount = isHourly ? 10 : 7; // 10 slots for 5h (every 30 min), 7 slots for 7d (daily)
-    const slotDuration = windowDuration / slotCount;
 
-    for (let i = 0; i <= slotCount; i++) {
-        const slotTime = new Date(windowStart.getTime() + i * slotDuration);
-        slots.push({
-            time: slotTime,
-            label: isHourly
-                ? `${(i * 0.5).toFixed(1)}h`
-                : slotTime.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'America/Los_Angeles' }),
-            fiveHour: null,
-            sevenDay: null,
-        });
+    if (isHourly) {
+        // 5-hour window: create slots every 30 minutes (11 slots total)
+        const slotInterval = 30 * 60 * 1000; // 30 min
+        for (let t = windowStart.getTime(); t <= windowEnd.getTime(); t += slotInterval) {
+            const slotTime = new Date(t);
+            slots.push({
+                time: slotTime,
+                label: formatTime(slotTime),
+                fiveHour: null,
+                sevenDay: null,
+            });
+        }
+    } else {
+        // 7-day window: create slots for each day
+        for (let d = 0; d < 7; d++) {
+            const slotTime = new Date(windowStart.getTime() + d * 24 * 60 * 60 * 1000);
+            slots.push({
+                time: slotTime,
+                label: formatDayDate(slotTime),
+                fiveHour: null,
+                sevenDay: null,
+            });
+        }
     }
 
-    // Map history data to slots
+    // Map history data to slots - find closest slot for each data point
     history.forEach(item => {
         const itemTime = new Date(item.timestamp);
+        if (itemTime > now) return; // Skip future data
 
-        // Find the closest slot
-        for (let i = 0; i < slots.length; i++) {
-            const slotTime = slots[i].time;
-            const nextSlotTime = slots[i + 1]?.time || new Date(windowEnd);
+        // Find the best matching slot
+        let bestSlot = null;
+        let bestDiff = Infinity;
 
-            if (itemTime >= slotTime && itemTime < nextSlotTime) {
-                // Only update if this data point is within our window AND not in the future
-                if (itemTime <= now) {
-                    // Take the latest value for this slot
-                    slots[i].fiveHour = item.five_hour?.utilization ?? slots[i].fiveHour;
-                    slots[i].sevenDay = item.seven_day?.utilization ?? slots[i].sevenDay;
-                }
-                break;
+        for (const slot of slots) {
+            const diff = Math.abs(itemTime - slot.time);
+            // For 5h view, match within 15 min; for 7d view, match within same day
+            const threshold = isHourly ? 15 * 60 * 1000 : 12 * 60 * 60 * 1000;
+            if (diff < bestDiff && diff < threshold) {
+                bestDiff = diff;
+                bestSlot = slot;
             }
+        }
+
+        if (bestSlot) {
+            bestSlot.fiveHour = item.five_hour?.utilization ?? bestSlot.fiveHour;
+            bestSlot.sevenDay = item.seven_day?.utilization ?? bestSlot.sevenDay;
         }
     });
 
-    // For slots in the future, keep as null (will show as gap)
+    // Mark future slots as null
     slots.forEach(slot => {
         if (slot.time > now) {
             slot.fiveHour = null;
@@ -538,9 +576,8 @@ function updateChart(history, range) {
     historyChart.data.datasets[0].data = slots.map(s => s.fiveHour);
     historyChart.data.datasets[1].data = slots.map(s => s.sevenDay);
 
-    // Pro limit line - horizontal line at 20% across all data points
+    // Pro limit line - horizontal line at 20%
     historyChart.data.datasets[2].data = slots.map(() => PRO_LIMIT_PERCENTAGE);
-    historyChart.data.datasets[2].hidden = !showProLimit;
 
     // Configure chart to not connect across null gaps
     historyChart.options.spanGaps = false;
@@ -708,34 +745,46 @@ async function fetchCostsSummary() {
     }
 }
 
+// Store current cost data for plan toggle updates
+let currentCostData = { total_cost: 0, daily_rate: 0 };
+
 function updateCostEstimates(costData) {
     const costEl = document.getElementById('cost-estimate');
-    const monthlyEl = document.getElementById('monthly-estimate');
+    const dailyAvgEl = document.getElementById('daily-average');
     const savingsEl = document.getElementById('savings');
 
     if (!costEl) return;
 
-    const { total_cost, projected_monthly } = costData;
+    currentCostData = costData;
+    const { total_cost, daily_rate } = costData;
 
     // This month's actual cost (from statusline cost_usd)
     costEl.textContent = `$${(total_cost || 0).toFixed(2)}`;
 
-    // Monthly projection
-    if (monthlyEl) {
-        monthlyEl.textContent = `$${(projected_monthly || 0).toFixed(2)}`;
+    // Daily average
+    if (dailyAvgEl) {
+        dailyAvgEl.textContent = `$${(daily_rate || 0).toFixed(2)}/day`;
     }
 
-    // Savings vs $200/month (Max subscription cost)
-    const subscriptionCost = 200;
-    const savings = subscriptionCost - (projected_monthly || 0);
-    if (savingsEl) {
-        if (savings > 0) {
-            savingsEl.textContent = `-$${savings.toFixed(2)}`;
-            savingsEl.className = 'cost-value positive';
-        } else {
-            savingsEl.textContent = `+$${Math.abs(savings).toFixed(2)}`;
-            savingsEl.className = 'cost-value negative';
-        }
+    // Calculate savings based on selected plan
+    updateSavings();
+}
+
+function updateSavings() {
+    const savingsEl = document.getElementById('savings');
+    const planSelect = document.getElementById('plan-select');
+
+    if (!savingsEl || !planSelect) return;
+
+    const planCost = parseInt(planSelect.value) || 200;
+    const savings = planCost - (currentCostData.total_cost || 0);
+
+    if (savings > 0) {
+        savingsEl.textContent = `-$${savings.toFixed(2)}`;
+        savingsEl.className = 'cost-value positive';
+    } else {
+        savingsEl.textContent = `+$${Math.abs(savings).toFixed(2)}`;
+        savingsEl.className = 'cost-value negative';
     }
 }
 
@@ -840,6 +889,19 @@ function updateChartWithProjection(history, range, projectionMode) {
     const sevenDayData = historyChart.data.datasets[1].data;
     const proLimitData = historyChart.data.datasets[2].data;
 
+    // Find last valid data point for each series
+    let lastValidFiveHourIdx = -1;
+    let lastValidSevenDayIdx = -1;
+    for (let i = fiveHourData.length - 1; i >= 0; i--) {
+        if (lastValidFiveHourIdx === -1 && fiveHourData[i] !== null && !isNaN(fiveHourData[i])) {
+            lastValidFiveHourIdx = i;
+        }
+        if (lastValidSevenDayIdx === -1 && sevenDayData[i] !== null && !isNaN(sevenDayData[i])) {
+            lastValidSevenDayIdx = i;
+        }
+        if (lastValidFiveHourIdx !== -1 && lastValidSevenDayIdx !== -1) break;
+    }
+
     const fiveHourProjected = calculateProjection(fiveHourData, projectionMode, 5);
     const sevenDayProjected = calculateProjection(sevenDayData, projectionMode, 5);
 
@@ -852,9 +914,23 @@ function updateChartWithProjection(history, range, projectionMode) {
     // Extend Pro limit line across projection zone
     const extendedProLimit = [...proLimitData, ...Array(fiveHourProjected.length).fill(PRO_LIMIT_PERCENTAGE)];
 
-    // Create projection data (nulls for actual, then projected values)
-    const fiveHourProjData = [...Array(fiveHourData.length).fill(null), ...fiveHourProjected];
-    const sevenDayProjData = [...Array(sevenDayData.length).fill(null), ...sevenDayProjected];
+    // Create projection data - include last valid point to connect the lines
+    const fiveHourProjData = Array(fiveHourData.length + fiveHourProjected.length).fill(null);
+    const sevenDayProjData = Array(sevenDayData.length + sevenDayProjected.length).fill(null);
+
+    // Set the last valid actual point to connect the projection line
+    if (lastValidFiveHourIdx !== -1) {
+        fiveHourProjData[lastValidFiveHourIdx] = fiveHourData[lastValidFiveHourIdx];
+    }
+    if (lastValidSevenDayIdx !== -1) {
+        sevenDayProjData[lastValidSevenDayIdx] = sevenDayData[lastValidSevenDayIdx];
+    }
+
+    // Add projected values after actual data
+    for (let i = 0; i < fiveHourProjected.length; i++) {
+        fiveHourProjData[fiveHourData.length + i] = fiveHourProjected[i];
+        sevenDayProjData[sevenDayData.length + i] = sevenDayProjected[i];
+    }
 
     // Update labels
     historyChart.data.labels = [...historyChart.data.labels, ...projectedLabels];
@@ -1294,16 +1370,10 @@ function init() {
         });
     }
 
-    // Pro limit toggle handler
-    const proLimitToggle = document.getElementById('show-pro-limit');
-    if (proLimitToggle) {
-        proLimitToggle.addEventListener('change', () => {
-            showProLimit = proLimitToggle.checked;
-            if (historyChart && historyChart.data.datasets[2]) {
-                historyChart.data.datasets[2].hidden = !showProLimit;
-                historyChart.update('none');
-            }
-        });
+    // Plan select handler for savings comparison
+    const planSelect = document.getElementById('plan-select');
+    if (planSelect) {
+        planSelect.addEventListener('change', updateSavings);
     }
 
     // Projects range select handler

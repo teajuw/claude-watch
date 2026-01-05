@@ -870,6 +870,21 @@ body {
     margin-top: var(--space-sm);
 }
 
+.plan-select {
+    background: transparent;
+    color: var(--status-low);
+    border: none;
+    font-family: inherit;
+    font-size: 0.75rem;
+    cursor: pointer;
+    padding: 0;
+}
+
+.plan-select option {
+    background: var(--bg-card);
+    color: var(--text-primary);
+}
+
 /* =============================================================================
    Projection Toggle
    ============================================================================= */

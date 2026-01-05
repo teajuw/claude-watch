@@ -8,6 +8,29 @@ CLAUDE_WATCH_DIR="${CLAUDE_WATCH_DIR:-$HOME/projects/claude-watch}"
 [ -f "$CLAUDE_WATCH_DIR/.env" ] && source "$CLAUDE_WATCH_DIR/.env"
 
 WORKER_URL="${WORKER_URL:-https://claude-watch.trevorju32.workers.dev}"
+
+# Token sync - runs in background, only if credentials are newer than last sync
+CREDS_FILE="$HOME/.claude/.credentials.json"
+SYNC_MARKER="/tmp/claude-watch-token-sync"
+if [ -f "$CREDS_FILE" ] && [ -n "$API_SECRET" ]; then
+  # Only sync if credentials file is newer than our last sync (or first time)
+  if [ ! -f "$SYNC_MARKER" ] || [ "$CREDS_FILE" -nt "$SYNC_MARKER" ]; then
+    (
+      ACCESS_TOKEN=$(jq -r '.claudeAiOauth.accessToken' "$CREDS_FILE" 2>/dev/null)
+      REFRESH_TOKEN=$(jq -r '.claudeAiOauth.refreshToken' "$CREDS_FILE" 2>/dev/null)
+      EXPIRES_AT=$(jq -r '.claudeAiOauth.expiresAt' "$CREDS_FILE" 2>/dev/null)
+
+      if [ -n "$ACCESS_TOKEN" ] && [ "$ACCESS_TOKEN" != "null" ]; then
+        curl -s -X POST "${WORKER_URL}/api/tokens/update" \
+          -H "Authorization: Bearer $API_SECRET" \
+          -H "Content-Type: application/json" \
+          -d "{\"accessToken\":\"$ACCESS_TOKEN\",\"refreshToken\":\"$REFRESH_TOKEN\",\"expiresAt\":$EXPIRES_AT}" \
+          > /dev/null 2>&1
+        touch "$SYNC_MARKER"
+      fi
+    ) &
+  fi
+fi
 # Support both TELEGRAM_CHAT_ID and TELEGRAM_USER_ID (legacy)
 TELEGRAM_CHAT_ID="${TELEGRAM_CHAT_ID:-$TELEGRAM_USER_ID}"
 

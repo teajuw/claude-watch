@@ -111,11 +111,15 @@
                         <div class="cost-value" id="cost-estimate">$0.00</div>
                     </div>
                     <div class="cost-card">
-                        <div class="cost-label">MONTHLY PROJECTION</div>
-                        <div class="cost-value" id="monthly-estimate">$0.00</div>
+                        <div class="cost-label">DAILY AVERAGE</div>
+                        <div class="cost-value" id="daily-average">$0.00/day</div>
                     </div>
                     <div class="cost-card savings">
-                        <div class="cost-label">SAVINGS VS $200/MO</div>
+                        <div class="cost-label">SAVINGS VS <select id="plan-select" class="plan-select">
+                            <option value="20">$20</option>
+                            <option value="100">$100</option>
+                            <option value="200" selected>$200</option>
+                        </select></div>
                         <div class="cost-value positive" id="savings">-$0.00</div>
                     </div>
                 </div>
@@ -135,10 +139,6 @@
                             <option value="predict">Predict</option>
                         </select>
                     </span>
-                    <label class="pro-limit-toggle">
-                        <input type="checkbox" id="show-pro-limit">
-                        <span class="toggle-label">PRO LIMIT</span>
-                    </label>
                 </div>
                 <div class="chart-container">
                     <canvas id="history-chart"></canvas>
