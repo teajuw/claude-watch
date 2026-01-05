@@ -206,6 +206,124 @@ export async function handleTokensSummary(request, env) {
 }
 
 /**
+ * GET /api/projects/details
+ * Returns comprehensive project data for Projects tab
+ */
+export async function handleProjectsDetails(request, env) {
+  try {
+    const url = new URL(request.url);
+    const range = url.searchParams.get('range') || '7d';
+
+    const days = range === '24h' ? 1 : range === '30d' ? 30 : 7;
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+    // Get comprehensive project stats from agent_metrics
+    const projectStats = await env.DB.prepare(`
+      SELECT
+        project,
+        SUM(input_tokens) as total_input,
+        SUM(output_tokens) as total_output,
+        SUM(input_tokens + output_tokens) as total_tokens,
+        SUM(cost_usd) as total_cost,
+        SUM(duration_ms) as total_duration_ms,
+        SUM(lines_added) as total_lines_added,
+        SUM(lines_removed) as total_lines_removed,
+        COUNT(DISTINCT session_id) as session_count,
+        COUNT(DISTINCT agent_id) as agent_count,
+        COUNT(*) as message_count,
+        MAX(timestamp) as last_activity,
+        GROUP_CONCAT(DISTINCT agent_id) as agents
+      FROM agent_metrics
+      WHERE timestamp >= ?
+      GROUP BY project
+      ORDER BY total_tokens DESC
+    `).bind(cutoff).all();
+
+    // Calculate totals
+    const totals = {
+      total_tokens: 0,
+      total_cost: 0,
+      total_duration_ms: 0,
+      total_lines_added: 0,
+      total_lines_removed: 0,
+      session_count: 0,
+      project_count: projectStats.results?.length || 0,
+    };
+
+    const projects = (projectStats.results || []).map(p => {
+      totals.total_tokens += p.total_tokens || 0;
+      totals.total_cost += p.total_cost || 0;
+      totals.total_duration_ms += p.total_duration_ms || 0;
+      totals.total_lines_added += p.total_lines_added || 0;
+      totals.total_lines_removed += p.total_lines_removed || 0;
+      totals.session_count += p.session_count || 0;
+
+      return {
+        name: p.project,
+        tokens: {
+          input: p.total_input || 0,
+          output: p.total_output || 0,
+          total: p.total_tokens || 0,
+        },
+        cost: p.total_cost || 0,
+        duration_ms: p.total_duration_ms || 0,
+        duration_formatted: formatDuration(p.total_duration_ms || 0),
+        lines: {
+          added: p.total_lines_added || 0,
+          removed: p.total_lines_removed || 0,
+          net: (p.total_lines_added || 0) - (p.total_lines_removed || 0),
+        },
+        sessions: p.session_count || 0,
+        messages: p.message_count || 0,
+        agents: p.agents ? p.agents.split(',') : [],
+        agent_count: p.agent_count || 0,
+        last_activity: p.last_activity,
+      };
+    });
+
+    return new Response(JSON.stringify({
+      success: true,
+      data: {
+        projects,
+        totals: {
+          ...totals,
+          duration_formatted: formatDuration(totals.total_duration_ms),
+        },
+      },
+      range,
+      cutoff,
+    }), {
+      headers: corsHeaders,
+    });
+
+  } catch (error) {
+    console.error('Error getting project details:', error);
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message,
+    }), {
+      status: 500,
+      headers: corsHeaders,
+    });
+  }
+}
+
+// Helper to format duration
+function formatDuration(ms) {
+  if (!ms || ms <= 0) return '0s';
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+
+  if (hours > 0) {
+    return `${hours}h ${minutes % 60}m`;
+  } else if (minutes > 0) {
+    return `${minutes}m ${seconds % 60}s`;
+  }
+  return `${seconds}s`;
+}
+
+/**
  * GET /api/costs/summary
  * Returns actual cost data from agent_metrics (cost_usd field)
  */

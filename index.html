@@ -201,14 +201,39 @@
 
             <!-- Projects Tab Content -->
             <div id="tab-projects" class="tab-content">
-                <!-- Projects Breakdown -->
-                <section class="projects-section">
+                <!-- Projects Overview Stats -->
+                <section class="projects-overview">
                     <div class="section-header">
-                        <span class="prompt">$</span> ./projects --breakdown <select id="projects-range" class="range-select">
+                        <span class="prompt">$</span> ./projects --summary <select id="projects-range" class="range-select">
                             <option value="24h">24h</option>
                             <option value="7d" selected>7d</option>
                             <option value="30d">30d</option>
                         </select>
+                    </div>
+                    <div class="fleet-stats">
+                        <div class="stat-box">
+                            <div class="stat-value" id="projects-count">0</div>
+                            <div class="stat-label">PROJECTS</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="projects-total-tokens">0</div>
+                            <div class="stat-label">TOTAL TOKENS</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="projects-total-cost">$0</div>
+                            <div class="stat-label">TOTAL COST</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="projects-total-time">0s</div>
+                            <div class="stat-label">CLAUDE TIME</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Projects Pie Chart -->
+                <section class="projects-section">
+                    <div class="section-header">
+                        <span class="prompt">$</span> ./projects --breakdown
                     </div>
                     <div class="projects-container">
                         <div class="pie-chart-container">
@@ -217,6 +242,42 @@
                         <div class="projects-legend" id="projects-legend">
                             <div class="legend-empty">No project data yet</div>
                         </div>
+                    </div>
+                </section>
+
+                <!-- Projects Table -->
+                <section class="projects-table-section">
+                    <div class="section-header">
+                        <span class="prompt">$</span> ./projects --list
+                    </div>
+                    <div class="projects-table-container">
+                        <table class="projects-table">
+                            <thead>
+                                <tr>
+                                    <th>PROJECT</th>
+                                    <th>TOKENS</th>
+                                    <th>COST</th>
+                                    <th>TIME</th>
+                                    <th>LINES</th>
+                                    <th>SESSIONS</th>
+                                    <th>AGENTS</th>
+                                    <th>LAST ACTIVE</th>
+                                </tr>
+                            </thead>
+                            <tbody id="projects-table-body">
+                                <tr><td colspan="8" class="table-empty">No project data yet</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Selected Project Detail (shown when clicking a project) -->
+                <section class="project-detail-section" id="project-detail" style="display: none;">
+                    <div class="section-header">
+                        <span class="prompt">$</span> ./projects --detail <span id="project-detail-name">project</span>
+                        <button class="close-btn" onclick="closeProjectDetail()">[ × ]</button>
+                    </div>
+                    <div class="project-detail-content" id="project-detail-content">
                     </div>
                 </section>
             </div><!-- End Projects Tab -->

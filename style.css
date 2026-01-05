@@ -810,6 +810,172 @@ body {
 }
 
 /* =============================================================================
+   Projects Table
+   ============================================================================= */
+
+.projects-overview {
+    margin-bottom: var(--space-xl);
+}
+
+.projects-table-section {
+    margin-bottom: var(--space-xl);
+}
+
+.projects-table-container {
+    background: var(--bg-card);
+    border: 1px solid var(--claude-orange-dim);
+    border-radius: 4px;
+    overflow-x: auto;
+}
+
+.projects-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.projects-table th {
+    text-align: left;
+    padding: var(--space-sm) var(--space-md);
+    color: var(--claude-orange);
+    font-weight: 600;
+    border-bottom: 1px solid var(--claude-orange-dim);
+    white-space: nowrap;
+}
+
+.projects-table td {
+    padding: var(--space-sm) var(--space-md);
+    border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+    color: var(--text-primary);
+}
+
+.projects-table tbody tr {
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.projects-table tbody tr:hover {
+    background: var(--claude-orange-glow);
+}
+
+.projects-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.projects-table .project-name {
+    color: var(--claude-orange);
+    font-weight: 600;
+}
+
+.projects-table .lines-added {
+    color: var(--status-low);
+}
+
+.projects-table .lines-removed {
+    color: var(--status-critical);
+}
+
+.projects-table .table-empty {
+    text-align: center;
+    color: var(--text-dim);
+    font-style: italic;
+    padding: var(--space-lg);
+}
+
+.projects-table .agent-count {
+    color: var(--text-dim);
+}
+
+.projects-table .last-active {
+    color: var(--text-dim);
+    font-size: 0.75rem;
+}
+
+/* Project Detail Panel */
+.project-detail-section {
+    margin-bottom: var(--space-xl);
+}
+
+.project-detail-section .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.close-btn {
+    background: none;
+    border: 1px solid var(--text-dim);
+    color: var(--text-dim);
+    padding: 2px 8px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.75rem;
+}
+
+.close-btn:hover {
+    border-color: var(--status-critical);
+    color: var(--status-critical);
+}
+
+.project-detail-content {
+    background: var(--bg-card);
+    border: 1px solid var(--claude-orange-dim);
+    border-radius: 4px;
+    padding: var(--space-lg);
+}
+
+.project-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--space-md);
+    margin-bottom: var(--space-md);
+}
+
+.project-detail-stat {
+    text-align: center;
+    padding: var(--space-sm);
+    background: var(--bg-dark);
+    border-radius: 4px;
+}
+
+.project-detail-stat .stat-value {
+    font-size: 1.25rem;
+    color: var(--claude-orange);
+    font-weight: 600;
+}
+
+.project-detail-stat .stat-label {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+}
+
+.project-agents-list {
+    margin-top: var(--space-md);
+}
+
+.project-agents-list .label {
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    margin-bottom: var(--space-xs);
+}
+
+.project-agents-list .agents {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+}
+
+.project-agents-list .agent-tag {
+    background: var(--bg-dark);
+    border: 1px solid var(--claude-orange-dim);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    color: var(--text-primary);
+}
+
+/* =============================================================================
    Cost Estimate Section
    ============================================================================= */
 

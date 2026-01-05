@@ -696,25 +696,151 @@ function updateProjectsPieChart(projects) {
     }
 
     // Update chart
-    projectsPieChart.data.labels = projects.map(p => p.project);
-    projectsPieChart.data.datasets[0].data = projects.map(p => p.total_tokens);
+    projectsPieChart.data.labels = projects.map(p => p.project || p.name);
+    projectsPieChart.data.datasets[0].data = projects.map(p => p.total_tokens || p.tokens?.total || 0);
     projectsPieChart.update('none');
 
     // Update legend
     if (legend) {
-        const total = projects.reduce((sum, p) => sum + p.total_tokens, 0);
+        const total = projects.reduce((sum, p) => sum + (p.total_tokens || p.tokens?.total || 0), 0);
         legend.innerHTML = projects.map((p, i) => {
-            const pct = ((p.total_tokens / total) * 100).toFixed(1);
+            const tokens = p.total_tokens || p.tokens?.total || 0;
+            const pct = total > 0 ? ((tokens / total) * 100).toFixed(1) : '0.0';
             const color = PROJECT_COLORS[i % PROJECT_COLORS.length];
             return `
                 <div class="legend-item">
                     <span class="legend-color" style="background: ${color}"></span>
-                    <span class="legend-label">${p.project}</span>
-                    <span class="legend-value">${formatTokens(p.total_tokens)}</span>
+                    <span class="legend-label">${p.project || p.name}</span>
+                    <span class="legend-value">${formatTokens(tokens)}</span>
                     <span class="legend-pct">${pct}%</span>
                 </div>
             `;
         }).join('');
+    }
+}
+
+// Store current projects data for detail view
+let currentProjectsData = [];
+
+async function fetchProjectsDetails(range = '7d') {
+    if (CONFIG.localMode) {
+        return { projects: [], totals: {} };
+    }
+
+    try {
+        const response = await fetch(`${CONFIG.workerUrl}/api/projects/details?range=${range}`);
+        if (!response.ok) return { projects: [], totals: {} };
+        const result = await response.json();
+        return result.data || { projects: [], totals: {} };
+    } catch (error) {
+        console.error('Failed to fetch projects details:', error);
+        return { projects: [], totals: {} };
+    }
+}
+
+function updateProjectsOverview(totals) {
+    const countEl = document.getElementById('projects-count');
+    const tokensEl = document.getElementById('projects-total-tokens');
+    const costEl = document.getElementById('projects-total-cost');
+    const timeEl = document.getElementById('projects-total-time');
+
+    if (countEl) countEl.textContent = totals.project_count || 0;
+    if (tokensEl) tokensEl.textContent = formatTokens(totals.total_tokens || 0);
+    if (costEl) costEl.textContent = `$${(totals.total_cost || 0).toFixed(2)}`;
+    if (timeEl) timeEl.textContent = totals.duration_formatted || '0s';
+}
+
+function updateProjectsTable(projects) {
+    const tbody = document.getElementById('projects-table-body');
+    if (!tbody) return;
+
+    currentProjectsData = projects;
+
+    if (!projects || projects.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="table-empty">No project data yet</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = projects.map((p, idx) => `
+        <tr onclick="showProjectDetail(${idx})">
+            <td class="project-name">${p.name}</td>
+            <td>${formatTokens(p.tokens?.total || 0)}</td>
+            <td>$${(p.cost || 0).toFixed(2)}</td>
+            <td>${p.duration_formatted || '0s'}</td>
+            <td>
+                <span class="lines-added">+${p.lines?.added || 0}</span>
+                <span class="lines-removed">-${p.lines?.removed || 0}</span>
+            </td>
+            <td>${p.sessions || 0}</td>
+            <td class="agent-count">${p.agent_count || 0}</td>
+            <td class="last-active">${formatTimeAgo(p.last_activity)}</td>
+        </tr>
+    `).join('');
+}
+
+function showProjectDetail(idx) {
+    const project = currentProjectsData[idx];
+    if (!project) return;
+
+    const detailSection = document.getElementById('project-detail');
+    const nameEl = document.getElementById('project-detail-name');
+    const contentEl = document.getElementById('project-detail-content');
+
+    if (!detailSection || !contentEl) return;
+
+    nameEl.textContent = project.name;
+
+    contentEl.innerHTML = `
+        <div class="project-detail-grid">
+            <div class="project-detail-stat">
+                <div class="stat-value">${formatTokens(project.tokens?.input || 0)}</div>
+                <div class="stat-label">Input Tokens</div>
+            </div>
+            <div class="project-detail-stat">
+                <div class="stat-value">${formatTokens(project.tokens?.output || 0)}</div>
+                <div class="stat-label">Output Tokens</div>
+            </div>
+            <div class="project-detail-stat">
+                <div class="stat-value">$${(project.cost || 0).toFixed(2)}</div>
+                <div class="stat-label">Cost</div>
+            </div>
+            <div class="project-detail-stat">
+                <div class="stat-value">${project.duration_formatted || '0s'}</div>
+                <div class="stat-label">Claude Time</div>
+            </div>
+            <div class="project-detail-stat">
+                <div class="stat-value">+${project.lines?.added || 0}</div>
+                <div class="stat-label">Lines Added</div>
+            </div>
+            <div class="project-detail-stat">
+                <div class="stat-value">-${project.lines?.removed || 0}</div>
+                <div class="stat-label">Lines Removed</div>
+            </div>
+            <div class="project-detail-stat">
+                <div class="stat-value">${project.sessions || 0}</div>
+                <div class="stat-label">Sessions</div>
+            </div>
+            <div class="project-detail-stat">
+                <div class="stat-value">${project.messages || 0}</div>
+                <div class="stat-label">Messages</div>
+            </div>
+        </div>
+        <div class="project-agents-list">
+            <div class="label">AGENTS:</div>
+            <div class="agents">
+                ${(project.agents || []).map(a => `<span class="agent-tag">${a}</span>`).join('')}
+            </div>
+        </div>
+    `;
+
+    detailSection.style.display = 'block';
+    detailSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function closeProjectDetail() {
+    const detailSection = document.getElementById('project-detail');
+    if (detailSection) {
+        detailSection.style.display = 'none';
     }
 }
 
@@ -1259,10 +1385,10 @@ async function fetchData() {
         const projectsRange = document.getElementById('projects-range')?.value || '7d';
         const projectionMode = document.getElementById('projection-mode')?.value || 'none';
 
-        const [currentUsage, history, projects, costs] = await Promise.all([
+        const [currentUsage, history, projectsDetails, costs] = await Promise.all([
             fetchCurrentUsage(),
             fetchUsageHistory(range),
-            fetchProjectsSummary(projectsRange),
+            fetchProjectsDetails(projectsRange),
             fetchCostsSummary(),
         ]);
 
@@ -1292,8 +1418,12 @@ async function fetchData() {
         // Update chart with projections
         updateChartWithProjection(history, range, projectionMode);
 
-        // Update projects pie chart
+        // Update projects tab
+        const projects = projectsDetails.projects || [];
+        const totals = projectsDetails.totals || {};
         updateProjectsPieChart(projects);
+        updateProjectsOverview(totals);
+        updateProjectsTable(projects);
 
         // Update cost estimates (using actual costs from hooks)
         updateCostEstimates(costs);
@@ -1399,8 +1529,13 @@ function init() {
     if (projectsRangeSelect) {
         projectsRangeSelect.addEventListener('change', async () => {
             try {
-                const projects = await fetchProjectsSummary(projectsRangeSelect.value);
+                const projectsDetails = await fetchProjectsDetails(projectsRangeSelect.value);
+                const projects = projectsDetails.projects || [];
+                const totals = projectsDetails.totals || {};
                 updateProjectsPieChart(projects);
+                updateProjectsOverview(totals);
+                updateProjectsTable(projects);
+                closeProjectDetail(); // Hide detail when range changes
             } catch (error) {
                 console.error('Failed to update projects:', error);
             }

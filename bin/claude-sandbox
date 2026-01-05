@@ -5,7 +5,8 @@ set -e
 
 # Config
 CLAUDE_WATCH_DIR="${CLAUDE_WATCH_DIR:-$HOME/projects/claude-watch}"
-CLAUDE_DATA_VOLUME="docker-claude-sandbox-data"
+# Volume name will be set per-project after parsing args
+CLAUDE_DATA_VOLUME=""
 WORKER_URL="https://claude-watch.trevorju32.workers.dev"
 CLAUDE_CREDS="$HOME/.claude/.credentials.json"
 
@@ -143,6 +144,10 @@ done
 WORKSPACE="${WORKSPACE:-$(pwd)}"
 WORKSPACE=$(realpath "$WORKSPACE")
 PROJECT=$(basename "$WORKSPACE")
+
+# Set project-specific volume name (sanitize project name for Docker)
+PROJECT_SLUG=$(echo "$PROJECT" | tr '[:upper:]' '[:lower:]' | tr -c '[:alnum:]' '-' | sed 's/-*$//')
+CLAUDE_DATA_VOLUME="claude-sandbox-${PROJECT_SLUG}"
 
 echo "╔════════════════════════════════════════════╗"
 echo "║  Claude Watch - Sandbox Mode               ║"
