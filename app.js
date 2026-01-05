@@ -15,6 +15,7 @@ const CONFIG = {
     refreshInterval: 60000, // 1 minute
     localMode: false, // Set via ?local=true for testing
     timezone: 'America/Los_Angeles', // Default timezone, changed via UI
+    hour12: true, // 12-hour format by default
 };
 
 // =============================================================================
@@ -1554,7 +1555,7 @@ function formatLogTime(isoString) {
     return date.toLocaleTimeString('en-US', {
         hour: '2-digit',
         minute: '2-digit',
-        hour12: false,
+        hour12: CONFIG.hour12,
         timeZone: CONFIG.timezone,
     });
 }
@@ -1628,6 +1629,17 @@ function toggleLogsPause() {
     } else {
         startLogsAutoRefresh();
     }
+}
+
+function toggleTimeFormat() {
+    CONFIG.hour12 = !CONFIG.hour12;
+    const btn = document.getElementById('time-format-btn');
+    if (btn) {
+        btn.textContent = CONFIG.hour12 ? '12h' : '24h';
+        btn.classList.toggle('active', !CONFIG.hour12);
+    }
+    // Re-render logs with new time format
+    renderLogs();
 }
 
 function startLogsAutoRefresh() {

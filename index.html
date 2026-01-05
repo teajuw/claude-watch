@@ -41,6 +41,9 @@
                         <option value="America/New_York">EST</option>
                     </select>
                 </span>
+                <span class="time-format-toggle">
+                    <button id="time-format-btn" class="mini-toggle" onclick="toggleTimeFormat()" title="Toggle 12h/24h">12h</button>
+                </span>
                 <span class="sync-status"><span class="label">SYNC:</span> <span id="last-updated-nav">Never</span></span>
                 <span id="action-btn-container">
                     <button class="action-btn" onclick="fetchData()">[ REFRESH ]</button>

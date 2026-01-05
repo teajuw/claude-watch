@@ -183,6 +183,15 @@ docker run --rm -v "$CLAUDE_DATA_VOLUME:/mnt/claude-data" \
 # Write agent ID to file (env vars get overridden by sandbox)
 docker run --rm -v "$CLAUDE_DATA_VOLUME:/mnt/claude-data" alpine sh -c "echo '$AGENT_ID' > /mnt/claude-data/agent-id"
 
+# Write telegram config to file (env vars don't persist to hooks in sandbox)
+if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
+    docker run --rm -v "$CLAUDE_DATA_VOLUME:/mnt/claude-data" alpine sh -c "cat > /mnt/claude-data/telegram.conf << EOF
+TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN
+TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-$TELEGRAM_USER_ID}
+WORKER_URL=$WORKER_URL
+EOF"
+fi
+
 # Write settings.json to /mnt/claude-data/settings.json
 # The sandbox symlinks /home/agent/.claude/settings.json -> /mnt/claude-data/settings.json
 docker run --rm -v "$CLAUDE_DATA_VOLUME:/mnt/claude-data" alpine sh -c 'cat > /mnt/claude-data/settings.json << "EOF"

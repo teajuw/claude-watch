@@ -3,11 +3,15 @@
 # Fires after each Claude response
 # Reads from temp file written by statusline, sends to Worker + Telegram
 
-# Source env vars if not already set
+# Source env vars if not already set (for local usage)
 CLAUDE_WATCH_DIR="${CLAUDE_WATCH_DIR:-$HOME/projects/claude-watch}"
 [ -f "$CLAUDE_WATCH_DIR/.env" ] && source "$CLAUDE_WATCH_DIR/.env"
 
+# Fallback to hardcoded worker URL (for container usage where env might not persist)
 WORKER_URL="${WORKER_URL:-https://claude-watch.trevorju32.workers.dev}"
+
+# Debug: log hook execution (comment out when not debugging)
+# echo "[stop-hook] WORKER_URL=$WORKER_URL TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:+set}" >> /tmp/claude-hook-debug.log
 
 # Token sync - runs in background, only if credentials are newer than last sync
 CREDS_FILE="$HOME/.claude/.credentials.json"
@@ -33,6 +37,11 @@ if [ -f "$CREDS_FILE" ] && [ -n "$API_SECRET" ]; then
 fi
 # Support both TELEGRAM_CHAT_ID and TELEGRAM_USER_ID (legacy)
 TELEGRAM_CHAT_ID="${TELEGRAM_CHAT_ID:-$TELEGRAM_USER_ID}"
+
+# For container mode: try reading from config file if env vars aren't set
+if [ -z "$TELEGRAM_BOT_TOKEN" ] && [ -f "/mnt/claude-data/telegram.conf" ]; then
+  source /mnt/claude-data/telegram.conf
+fi
 
 # Read hook input from stdin
 input=$(cat)

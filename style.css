@@ -294,6 +294,29 @@ body {
     border-color: var(--claude-orange);
 }
 
+.mini-toggle {
+    background: var(--bg-card);
+    color: var(--text-dim);
+    border: 1px solid var(--claude-orange-dim);
+    padding: var(--space-xs) var(--space-sm);
+    font-family: inherit;
+    font-size: 0.75rem;
+    border-radius: 4px;
+    cursor: pointer;
+    min-width: 32px;
+}
+
+.mini-toggle:hover {
+    border-color: var(--claude-orange);
+    color: var(--claude-orange);
+}
+
+.mini-toggle.active {
+    background: var(--claude-orange-dim);
+    color: var(--claude-orange);
+    border-color: var(--claude-orange);
+}
+
 .chart-container {
     background: var(--bg-card);
     border: 1px solid var(--claude-orange-dim);
