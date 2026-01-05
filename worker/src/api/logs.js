@@ -113,6 +113,8 @@ export async function handleGetLogs(request, env) {
           total_output_tokens: aggregatesResult?.total_output || 0,
           total_tokens: (aggregatesResult?.total_input || 0) + (aggregatesResult?.total_output || 0),
           total_events: aggregatesResult?.total_events || 0,
+          project_count: aggregatesResult?.project_count || 0,
+          agent_count: aggregatesResult?.agent_count || 0,
         },
         filters: {
           projects: (projectsResult.results || []).map(r => r.project),

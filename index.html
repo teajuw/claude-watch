@@ -161,54 +161,43 @@
 
             <!-- Logs Tab Content -->
             <div id="tab-logs" class="tab-content">
-                <!-- Search Bar -->
-                <section class="logs-search-section">
-                    <div class="logs-search-bar">
-                        <span class="search-icon">🔍</span>
-                        <input type="text" id="logs-search" class="logs-search-input" placeholder="Search logs... (Ctrl+F)" />
-                        <span class="search-hint">Ctrl+F</span>
+                <!-- Log Stream (moved to top) -->
+                <section class="logs-stream-section">
+                    <div class="logs-header">
+                        <span class="logs-title">> Activity stream</span>
+                        <button class="logs-live-toggle" id="logs-live-toggle" onclick="toggleLogsPause()">
+                            <span class="live-dot"></span>
+                            <span class="live-text">LIVE</span>
+                        </button>
                     </div>
-                </section>
-
-                <!-- Filters -->
-                <section class="logs-filters-section">
-                    <div class="section-header">
-                        <span class="prompt">$</span> ./logs --filter
+                    <div class="logs-toolbar">
+                        <input type="text" id="logs-search" class="logs-search-input" placeholder="Search..." />
+                        <select id="logs-filter-project" class="logs-filter">
+                            <option value="">All projects</option>
+                        </select>
+                        <select id="logs-filter-agent" class="logs-filter">
+                            <option value="">All agents</option>
+                        </select>
+                        <select id="logs-filter-type" class="logs-filter">
+                            <option value="">All types</option>
+                            <option value="response">Response</option>
+                            <option value="start">Start</option>
+                            <option value="stop">Stop</option>
+                            <option value="commit">Commit</option>
+                            <option value="error">Error</option>
+                            <option value="sync">Sync</option>
+                        </select>
+                        <select id="logs-filter-range" class="logs-filter">
+                            <option value="1h">1h</option>
+                            <option value="24h" selected>24h</option>
+                            <option value="7d">7d</option>
+                        </select>
                     </div>
-                    <div class="logs-filters">
-                        <div class="filter-group">
-                            <label>Project:</label>
-                            <select id="logs-filter-project" class="range-select">
-                                <option value="">All</option>
-                            </select>
-                        </div>
-                        <div class="filter-group">
-                            <label>Agent:</label>
-                            <select id="logs-filter-agent" class="range-select">
-                                <option value="">All</option>
-                            </select>
-                        </div>
-                        <div class="filter-group">
-                            <label>Type:</label>
-                            <select id="logs-filter-type" class="range-select">
-                                <option value="">All</option>
-                                <option value="response">Response</option>
-                                <option value="start">Start</option>
-                                <option value="stop">Stop</option>
-                                <option value="commit">Commit</option>
-                                <option value="error">Error</option>
-                                <option value="sync">Sync</option>
-                                <option value="alert">Alert</option>
-                            </select>
-                        </div>
-                        <div class="filter-group">
-                            <label>Range:</label>
-                            <select id="logs-filter-range" class="range-select">
-                                <option value="1h">1 hour</option>
-                                <option value="24h" selected>24 hours</option>
-                                <option value="7d">7 days</option>
-                            </select>
-                        </div>
+                    <div class="logs-stream" id="logs-stream">
+                        <div class="logs-empty">No logs yet. Activity will appear here as hooks fire.</div>
+                    </div>
+                    <div class="logs-load-more" id="logs-load-more" style="display: none;">
+                        <button class="action-btn" onclick="loadMoreLogs()">Load more...</button>
                     </div>
                 </section>
 
@@ -233,22 +222,19 @@
                         </div>
                     </div>
                 </section>
-
-                <!-- Log Stream -->
-                <section class="logs-stream-section">
-                    <div class="section-header">
-                        <span class="prompt">$</span> tail -f ./activity.log
-                        <span class="logs-live-indicator" id="logs-live-indicator">LIVE</span>
-                        <button class="logs-pause-btn" id="logs-pause-btn" onclick="toggleLogsPause()">[ ⏸ pause ]</button>
-                    </div>
-                    <div class="logs-stream" id="logs-stream">
-                        <div class="logs-empty">No logs yet. Activity will appear here as hooks fire.</div>
-                    </div>
-                    <div class="logs-load-more" id="logs-load-more" style="display: none;">
-                        <button class="action-btn" onclick="loadMoreLogs()">[ Load more... ]</button>
-                    </div>
-                </section>
             </div><!-- End Logs Tab -->
+
+            <!-- Log Detail Modal -->
+            <div class="log-modal-overlay" id="log-modal-overlay" onclick="closeLogModal()">
+                <div class="log-modal" onclick="event.stopPropagation()">
+                    <div class="log-modal-header">
+                        <span class="log-modal-title">Log Details</span>
+                        <button class="log-modal-close" onclick="closeLogModal()">×</button>
+                    </div>
+                    <div class="log-modal-content" id="log-modal-content">
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
 

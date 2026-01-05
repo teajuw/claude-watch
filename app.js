@@ -1428,7 +1428,7 @@ function renderLogs(highlightId = null) {
             : summary;
 
         return `
-            <div class="log-entry ${isMatch ? 'search-match' : ''} ${isNew ? 'new-entry' : ''}" onclick="toggleLogDetail(${idx})" data-idx="${idx}">
+            <div class="log-entry ${isMatch ? 'search-match' : ''} ${isNew ? 'new-entry' : ''}" onclick="openLogModal(${idx})" data-idx="${idx}">
                 <div class="log-entry-header">
                     <span class="log-time">${time}</span>
                     <span class="log-type ${type}">${type}</span>
@@ -1441,9 +1441,6 @@ function renderLogs(highlightId = null) {
                             <span class="output">↑${formatTokens(outputTokens)}</span>
                         </span>
                     ` : ''}
-                </div>
-                <div class="log-entry-detail">
-                    ${renderLogDetail(log)}
                 </div>
             </div>
         `;
@@ -1477,12 +1474,32 @@ function renderLogDetail(log) {
     `).join('');
 }
 
-function toggleLogDetail(idx) {
-    const entry = document.querySelector(`.log-entry[data-idx="${idx}"]`);
-    if (entry) {
-        entry.classList.toggle('expanded');
+function openLogModal(idx) {
+    const log = logsData[idx];
+    if (!log) return;
+
+    const overlay = document.getElementById('log-modal-overlay');
+    const content = document.getElementById('log-modal-content');
+
+    if (overlay && content) {
+        content.innerHTML = renderLogDetail(log);
+        overlay.classList.add('visible');
     }
 }
+
+function closeLogModal() {
+    const overlay = document.getElementById('log-modal-overlay');
+    if (overlay) {
+        overlay.classList.remove('visible');
+    }
+}
+
+// Close modal on Escape key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        closeLogModal();
+    }
+});
 
 function generateLogSummary(log) {
     const type = log.event_type;
@@ -1526,20 +1543,24 @@ function updateLogsSummary(aggregates) {
     const agentCountEl = document.getElementById('logs-agent-count');
 
     if (aggregates) {
+        // Use API aggregates (reflects all filtered results, not just paginated page)
         if (eventCountEl) eventCountEl.textContent = aggregates.total_events || 0;
         if (totalTokensEl) totalTokensEl.textContent = formatTokens(aggregates.total_tokens || 0);
+        if (projectCountEl) projectCountEl.textContent = aggregates.project_count || 0;
+        if (agentCountEl) agentCountEl.textContent = aggregates.agent_count || 0;
     } else {
+        // Fallback to local calculation
         if (eventCountEl) eventCountEl.textContent = logsData.length;
         const totalTokens = logsData.reduce((sum, log) =>
             sum + (log.input_tokens || 0) + (log.output_tokens || 0), 0);
         if (totalTokensEl) totalTokensEl.textContent = formatTokens(totalTokens);
+
+        const projects = new Set(logsData.map(l => l.project).filter(Boolean));
+        if (projectCountEl) projectCountEl.textContent = projects.size;
+
+        const agents = new Set(logsData.map(l => l.agent_id).filter(Boolean));
+        if (agentCountEl) agentCountEl.textContent = agents.size;
     }
-
-    const projects = new Set(logsData.map(l => l.project).filter(Boolean));
-    if (projectCountEl) projectCountEl.textContent = projects.size;
-
-    const agents = new Set(logsData.map(l => l.agent_id).filter(Boolean));
-    if (agentCountEl) agentCountEl.textContent = agents.size;
 }
 
 function updateLogsFiltersFromAPI(filters) {
@@ -1568,17 +1589,14 @@ function updateLogsFiltersFromAPI(filters) {
 
 function toggleLogsPause() {
     logsPaused = !logsPaused;
-    const btn = document.getElementById('logs-pause-btn');
-    const indicator = document.getElementById('logs-live-indicator');
+    const toggle = document.getElementById('logs-live-toggle');
 
-    if (btn) {
-        btn.textContent = logsPaused ? '[ ▶ resume ]' : '[ ⏸ pause ]';
-        btn.classList.toggle('paused', logsPaused);
-    }
-
-    if (indicator) {
-        indicator.textContent = logsPaused ? 'PAUSED' : 'LIVE';
-        indicator.classList.toggle('paused', logsPaused);
+    if (toggle) {
+        const textEl = toggle.querySelector('.live-text');
+        if (textEl) {
+            textEl.textContent = logsPaused ? 'PAUSED' : 'LIVE';
+        }
+        toggle.classList.toggle('paused', logsPaused);
     }
 
     // Stop/start auto-refresh based on pause state
