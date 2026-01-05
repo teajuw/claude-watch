@@ -108,6 +108,21 @@ const PROJECTS_QUIPS = [
     "Where tokens go to become features.",
 ];
 
+const LOGS_QUIPS = [
+    "Monitoring the void.",
+    "Every token tells a story.",
+    "The audit trail of ambition.",
+    "Watching the watchers watch.",
+    "Your digital paper trail.",
+    "Activity streams, consciousness screams.",
+    "The log sees all. Judges nothing.",
+    "Chronicles of the token wars.",
+    "Real-time regret monitoring.",
+    "The eternal scroll of doing.",
+    "Where prompts come to be remembered.",
+    "Syslog for your soul.",
+];
+
 const AGENTS_QUIPS = [
     "The fleet awaits your command.",
     "Agent swarm status: nominal.",
@@ -367,6 +382,13 @@ function updateQuip(utilization, isIdle = false) {
 
 function getRandomQuip(quips) {
     return quips[Math.floor(Math.random() * quips.length)];
+}
+
+function updateLogsQuip() {
+    const quipEl = document.getElementById('logs-quip');
+    if (quipEl) {
+        quipEl.textContent = getRandomQuip(LOGS_QUIPS);
+    }
 }
 
 function updateProjectsQuip() {
@@ -1379,6 +1401,7 @@ async function fetchLogs(append = false) {
         renderLogs(hadNewLogs ? newLogs[0].id : null);
         updateLogsSummary(data.aggregates);
         updateLogsFiltersFromAPI(data.filters);
+        updateLogsQuip();
 
         // Show notification for new logs
         if (hadNewLogs && !append) {
