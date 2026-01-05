@@ -487,6 +487,16 @@ function getPSTDayKey(date) {
     return date.toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
 }
 
+// Get start of day (midnight) in PST for a given date
+function startOfDayPST(date) {
+    // Get the date string in PST (YYYY-MM-DD)
+    const pstDateStr = date.toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+    // Parse as midnight PST (using PST offset)
+    // PST is UTC-8, PDT is UTC-7 - use LA timezone to handle DST
+    const midnight = new Date(pstDateStr + 'T00:00:00-08:00');
+    return midnight;
+}
+
 function updateChart(history, range) {
     if (!historyChart || !history || history.length === 0) return;
 
@@ -509,9 +519,9 @@ function updateChart(history, range) {
         windowEnd = roundToNearest15Min(fiveHourReset || new Date(now.getTime() + 5 * 60 * 60 * 1000));
         isHourly = true;
     } else {
-        // 7-day window
-        windowStart = sevenDayStart;
-        windowEnd = sevenDayReset || new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        // 7-day window: normalize to PST calendar days (midnight to midnight)
+        windowStart = startOfDayPST(sevenDayStart);
+        windowEnd = startOfDayPST(sevenDayReset || new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000));
         isHourly = false;
     }
 
@@ -531,9 +541,12 @@ function updateChart(history, range) {
             });
         }
     } else {
-        // 7-day window: create slots for each day
-        for (let d = 0; d < 7; d++) {
+        // 7-day window: create slots for each day (8 slots to cover full window including end day)
+        // Window spans from start to reset, so we need slots for both boundary days
+        for (let d = 0; d <= 7; d++) {
             const slotTime = new Date(windowStart.getTime() + d * 24 * 60 * 60 * 1000);
+            // Stop if we've passed the window end
+            if (slotTime > windowEnd) break;
             slots.push({
                 time: slotTime,
                 label: formatDayDate(slotTime),
