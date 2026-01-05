@@ -10,8 +10,8 @@ CLAUDE_WATCH_DIR="${CLAUDE_WATCH_DIR:-$HOME/projects/claude-watch}"
 # Fallback to hardcoded worker URL (for container usage where env might not persist)
 WORKER_URL="${WORKER_URL:-https://claude-watch.trevorju32.workers.dev}"
 
-# Debug: log hook execution (comment out when not debugging)
-# echo "[stop-hook] WORKER_URL=$WORKER_URL TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:+set}" >> /tmp/claude-hook-debug.log
+# Debug flag - set to 1 to enable logging
+DEBUG=1
 
 # Token sync - runs in background, only if credentials are newer than last sync
 CREDS_FILE="$HOME/.claude/.credentials.json"
@@ -49,6 +49,10 @@ session_id=$(echo "$input" | jq -r '.session_id // "unknown"')
 
 stats_file="/tmp/claude-stats-${session_id}.json"
 last_file="/tmp/claude-last-${session_id}.json"
+
+# Debug logging (write to volume so we can inspect from outside)
+DEBUG_LOG="/mnt/claude-data/hook-debug.log"
+[ "$DEBUG" = "1" ] && echo "[stop-hook] $(date) session=$session_id stats_exists=$([ -f \"$stats_file\" ] && echo yes || echo no) WORKER_URL=$WORKER_URL" >> "$DEBUG_LOG"
 
 # Exit if statusline hasn't written yet
 [ ! -f "$stats_file" ] && exit 0

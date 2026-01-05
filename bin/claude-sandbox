@@ -194,8 +194,10 @@ fi
 
 # Write settings.json to /mnt/claude-data/settings.json
 # The sandbox symlinks /home/agent/.claude/settings.json -> /mnt/claude-data/settings.json
+# bypassPermissionsModeAccepted: true prevents the bypass permissions prompt each time
 docker run --rm -v "$CLAUDE_DATA_VOLUME:/mnt/claude-data" alpine sh -c 'cat > /mnt/claude-data/settings.json << "EOF"
 {
+  "bypassPermissionsModeAccepted": true,
   "statusLine": {
     "type": "command",
     "command": "/mnt/claude-data/hooks/statusline.sh"
