@@ -2,6 +2,60 @@
 
 Future enhancements to add when Phase 1 is complete.
 
+---
+
+## KNOWN ISSUE: OAuth Refresh Token Expiration
+
+**Status:** Recurring issue - tokens expire and need manual refresh.
+
+### The Problem
+
+Claude Code uses OAuth tokens stored in `~/.claude/.credentials.json`. These tokens:
+- Have a limited lifespan (access_token expires, refresh_token can also expire)
+- Are rotated when refreshed, but sometimes fail to refresh automatically
+- When expired, the dashboard's cron job fails to fetch usage data from Anthropic
+
+### Symptoms
+- Dashboard shows stale data (last updated timestamp doesn't change)
+- Worker logs show 401 errors or "invalid_grant" errors
+- `sync-credentials.sh` fails with auth errors
+
+### Current Workaround
+
+1. **Manual re-auth:** Open Claude Code CLI (`claude`) and let it refresh the token
+2. **Re-sync to KV:** Run `bin/sync-credentials` to push new tokens to Cloudflare KV
+3. **Verify:** Check dashboard updates within 1-2 minutes
+
+### Files Involved
+- `~/.claude/.credentials.json` - Local token storage
+- `bin/sync-credentials` - Script to sync tokens to Cloudflare KV
+- `worker/src/cron/poll.js` - Cron that fetches usage using stored tokens
+- `worker/src/lib/auth.js` - Token retrieval and refresh logic
+
+### Long-term Fix Options
+
+1. **Proactive refresh cron** - Daily cron that refreshes tokens before expiration
+2. **Token health check** - Worker endpoint that validates token and alerts if failing
+3. **Auto-refresh on 401** - Worker retries with refresh_token when access_token fails
+4. **Longer-lived tokens** - Investigate if Anthropic offers extended token lifetimes
+
+### Quick Reference Commands
+```bash
+# Check current token status
+cat ~/.claude/.credentials.json | jq '.expires_at'
+
+# Re-authenticate (opens browser)
+claude
+
+# Sync to Cloudflare KV
+cd ~/projects/claude-watch && ./bin/sync-credentials
+
+# Check worker logs for errors
+wrangler tail --format=pretty
+```
+
+---
+
 ## Phase 2: Per-Session Token Tracking
 
 **Goal:** Add granular per-session token usage to the dashboard.

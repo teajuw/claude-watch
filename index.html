@@ -33,6 +33,15 @@
                 <button class="tab-btn" data-tab="agents" onclick="switchTab('agents')">[ AGENTS ]</button>
             </div>
             <div class="tab-actions">
+                <span class="tz-toggle">
+                    <span class="label">TZ:</span>
+                    <select id="timezone-select" class="range-select">
+                        <option value="America/Los_Angeles" selected>PST</option>
+                        <option value="America/Denver">MST</option>
+                        <option value="America/Chicago">CST</option>
+                        <option value="America/New_York">EST</option>
+                    </select>
+                </span>
                 <span class="sync-status"><span class="label">SYNC:</span> <span id="last-updated-nav">Never</span></span>
                 <button class="action-btn" onclick="fetchData()">[ REFRESH ]</button>
             </div>
@@ -130,6 +139,7 @@
                 <div class="section-header">
                     <span class="prompt">$</span> ./history --window <select id="history-range" class="range-select">
                         <option value="5h">5-Hour</option>
+                        <option value="24h">24-Hour</option>
                         <option value="7d" selected>7-Day</option>
                         <option value="30d">Monthly</option>
                     </select>

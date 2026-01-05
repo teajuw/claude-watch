@@ -14,6 +14,7 @@ const CONFIG = {
     workerUrl: '', // Set during init or via ?worker= param
     refreshInterval: 60000, // 1 minute
     localMode: false, // Set via ?local=true for testing
+    timezone: 'America/Los_Angeles', // Default timezone, changed via UI
 };
 
 // =============================================================================
@@ -165,15 +166,24 @@ function formatCountdown(resetDate) {
     ].join(':');
 }
 
+function getTimezoneAbbr() {
+    const tzMap = {
+        'America/Los_Angeles': 'PST',
+        'America/Denver': 'MST',
+        'America/Chicago': 'CST',
+        'America/New_York': 'EST',
+    };
+    return tzMap[CONFIG.timezone] || 'PST';
+}
+
 function formatResetTime(resetDate, includeWeekday = false) {
     if (!resetDate) return '';
 
-    // Format in PST
     const options = {
         hour: 'numeric',
         minute: '2-digit',
         hour12: true,
-        timeZone: 'America/Los_Angeles',
+        timeZone: CONFIG.timezone,
     };
 
     // Add weekday for 7-day reset
@@ -181,7 +191,7 @@ function formatResetTime(resetDate, includeWeekday = false) {
         options.weekday = 'short';
     }
 
-    return `(${resetDate.toLocaleString('en-US', options)} PST)`;
+    return `(${resetDate.toLocaleString('en-US', options)} ${getTimezoneAbbr()})`;
 }
 
 function formatTimestamp(isoString) {
@@ -192,7 +202,7 @@ function formatTimestamp(isoString) {
         hour: 'numeric',
         minute: '2-digit',
         hour12: true,
-        timeZone: 'America/Los_Angeles',
+        timeZone: CONFIG.timezone,
     };
     return date.toLocaleString('en-US', options);
 }
@@ -471,7 +481,7 @@ function formatTime(date) {
         hour: 'numeric',
         minute: '2-digit',
         hour12: true,
-        timeZone: 'America/Los_Angeles',
+        timeZone: CONFIG.timezone,
     });
 }
 
@@ -481,7 +491,7 @@ function formatDayDate(date) {
         weekday: 'short',
         month: 'numeric',
         day: 'numeric',
-        timeZone: 'America/Los_Angeles',
+        timeZone: CONFIG.timezone,
     });
 }
 
@@ -490,23 +500,27 @@ function formatMonthDay(date) {
     return date.toLocaleDateString('en-US', {
         month: 'numeric',
         day: 'numeric',
-        timeZone: 'America/Los_Angeles',
+        timeZone: CONFIG.timezone,
     });
 }
 
-// Get PST calendar day string for comparison (YYYY-MM-DD in PST)
-function getPSTDayKey(date) {
-    return date.toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+// Get calendar day string for comparison (YYYY-MM-DD in selected timezone)
+function getDayKey(date) {
+    return date.toLocaleDateString('en-CA', { timeZone: CONFIG.timezone });
 }
 
-// Get start of day (midnight) in PST for a given date
-function startOfDayPST(date) {
-    // Get the date string in PST (YYYY-MM-DD)
-    const pstDateStr = date.toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
-    // Parse as midnight PST (using PST offset)
-    // PST is UTC-8, PDT is UTC-7 - use LA timezone to handle DST
-    const midnight = new Date(pstDateStr + 'T00:00:00-08:00');
-    return midnight;
+// Get start of day (midnight) in selected timezone
+function startOfDay(date) {
+    const dateStr = date.toLocaleDateString('en-CA', { timeZone: CONFIG.timezone });
+    // Parse as local midnight - JS will interpret based on local system
+    // For display purposes, we just need consistent day boundaries
+    return new Date(dateStr + 'T00:00:00');
+}
+
+// Get end of day (23:59:59) in selected timezone
+function endOfDay(date) {
+    const dateStr = date.toLocaleDateString('en-CA', { timeZone: CONFIG.timezone });
+    return new Date(dateStr + 'T23:59:59');
 }
 
 function updateChart(history, range) {
@@ -530,18 +544,23 @@ function updateChart(history, range) {
         windowStart = roundToNearest15Min(fiveHourStart);
         windowEnd = roundToNearest15Min(fiveHourReset || new Date(now.getTime() + 5 * 60 * 60 * 1000));
         slotMode = 'hourly';
+    } else if (range === '24h') {
+        // 24-hour window: show current day (midnight to midnight) in selected timezone
+        windowStart = startOfDay(now);
+        windowEnd = endOfDay(now);
+        slotMode = '24h';
     } else if (range === '30d') {
         // Monthly view: align to calendar month (billing cycle)
         // Start from 1st of current month, end at last day of month
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
         const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0); // Last day of month
-        windowStart = startOfDayPST(monthStart);
-        windowEnd = startOfDayPST(monthEnd);
+        windowStart = startOfDay(monthStart);
+        windowEnd = startOfDay(monthEnd);
         slotMode = 'monthly';
     } else {
         // 7-day window: normalize to PST calendar days (midnight to midnight)
-        windowStart = startOfDayPST(sevenDayStart);
-        windowEnd = startOfDayPST(sevenDayReset || new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000));
+        windowStart = startOfDay(sevenDayStart);
+        windowEnd = startOfDay(sevenDayReset || new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000));
         slotMode = 'daily';
     }
 
@@ -560,6 +579,19 @@ function updateChart(history, range) {
                 sevenDay: null,
             });
         }
+    } else if (slotMode === '24h') {
+        // 24-hour window: create slots every hour (25 slots)
+        const slotInterval = 60 * 60 * 1000; // 1 hour
+        for (let t = windowStart.getTime(); t <= windowEnd.getTime(); t += slotInterval) {
+            const slotTime = new Date(t);
+            slots.push({
+                time: slotTime,
+                label: formatTime(slotTime),
+                hourKey: slotTime.toISOString().slice(0, 13), // "2025-01-05T01" for matching
+                fiveHour: null,
+                sevenDay: null,
+            });
+        }
     } else if (slotMode === 'monthly') {
         // Monthly view: create slots for each day from 1st to today
         const daysInView = Math.ceil((windowEnd - windowStart) / (24 * 60 * 60 * 1000)) + 1;
@@ -569,7 +601,7 @@ function updateChart(history, range) {
             slots.push({
                 time: slotTime,
                 label: formatMonthDay(slotTime), // Shorter format: "1/5"
-                dayKey: getPSTDayKey(slotTime),
+                dayKey: getDayKey(slotTime),
                 fiveHour: null,
                 sevenDay: null,
             });
@@ -584,7 +616,7 @@ function updateChart(history, range) {
             slots.push({
                 time: slotTime,
                 label: formatDayDate(slotTime),
-                dayKey: getPSTDayKey(slotTime), // PST calendar day for matching
+                dayKey: getDayKey(slotTime), // PST calendar day for matching
                 fiveHour: null,
                 sevenDay: null,
             });
@@ -608,9 +640,13 @@ function updateChart(history, range) {
                     bestSlot = slot;
                 }
             }
+        } else if (slotMode === '24h') {
+            // 24-hour view: match by hour
+            const itemHourKey = itemTime.toISOString().slice(0, 13);
+            bestSlot = slots.find(slot => slot.hourKey === itemHourKey);
         } else {
             // 7-day or monthly view: match by PST calendar day
-            const itemDayKey = getPSTDayKey(itemTime);
+            const itemDayKey = getDayKey(itemTime);
             bestSlot = slots.find(slot => slot.dayKey === itemDayKey);
         }
 
@@ -1644,6 +1680,16 @@ function init() {
             } catch (error) {
                 console.error('Failed to update projection:', error);
             }
+        });
+    }
+
+    // Timezone select handler
+    const timezoneSelect = document.getElementById('timezone-select');
+    if (timezoneSelect) {
+        timezoneSelect.addEventListener('change', () => {
+            CONFIG.timezone = timezoneSelect.value;
+            // Refresh all data with new timezone
+            fetchData();
         });
     }
 
