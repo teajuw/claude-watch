@@ -346,10 +346,41 @@ function updateLastUpdated(timestamp) {
     }
 }
 
+const SYNC_COMMAND = 'cd ~/projects/claude-watch && ./bin/sync-credentials';
+
 function showError(message) {
     const quipEl = document.getElementById('quip');
     if (quipEl) {
         quipEl.textContent = `${getErrorQuip()} (${message})`;
+    }
+
+    // Check if this is an auth error (500 or 401)
+    const isAuthError = message.includes('500') || message.includes('401') || message.includes('token');
+    const actionContainer = document.getElementById('action-btn-container');
+
+    if (isAuthError && actionContainer) {
+        actionContainer.innerHTML = `
+            <button class="action-btn sync-btn" onclick="copySyncCommand()" title="Click to copy">[ SYNC REQUIRED ]</button>
+        `;
+    }
+}
+
+function copySyncCommand() {
+    navigator.clipboard.writeText(SYNC_COMMAND).then(() => {
+        const btn = document.querySelector('.sync-btn');
+        if (btn) {
+            btn.textContent = '[ COPIED! ]';
+            setTimeout(() => {
+                btn.textContent = '[ SYNC REQUIRED ]';
+            }, 2000);
+        }
+    });
+}
+
+function resetActionButton() {
+    const actionContainer = document.getElementById('action-btn-container');
+    if (actionContainer) {
+        actionContainer.innerHTML = `<button class="action-btn" onclick="fetchData()">[ REFRESH ]</button>`;
     }
 }
 
@@ -1592,6 +1623,9 @@ async function fetchData() {
 
         // Update cost estimates (using actual costs from hooks)
         updateCostEstimates(costs);
+
+        // Reset action button to REFRESH on success
+        resetActionButton();
 
         console.log('Data updated successfully');
     } catch (error) {

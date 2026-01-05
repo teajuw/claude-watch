@@ -8,47 +8,108 @@ Future enhancements to add when Phase 1 is complete.
 
 **Status:** Recurring issue - tokens expire and need manual refresh.
 
+### Root Cause (Diagnosed 2026-01-05)
+
+The issue is a **token synchronization race condition**:
+
+1. **Claude CLI and Worker share the same OAuth credentials** but manage them independently
+2. **When Claude CLI refreshes tokens** (either automatically or via user session), Anthropic **invalidates the old refresh token**
+3. **Worker still has old tokens in KV** → Worker's refresh attempt fails because its refresh token is now invalid
+4. **Result:** 401 errors, "OAuth token has expired" messages
+
+**Key insight:** OAuth refresh tokens are single-use. When a new token pair is issued, the old refresh token becomes permanently invalid. The Worker and CLI are fighting over the same token.
+
+### Token Flow Diagram
+```
+[Claude CLI]                    [Cloudflare Worker KV]
+     │                                    │
+     │  Token A expires                   │  Has Token A (cached)
+     │        │                           │
+     │  CLI refreshes → Token B           │  Still has Token A
+     │        │                           │
+     │  Token A refresh_token INVALIDATED │
+     │                                    │
+     │                                    │  Worker tries Token A
+     │                                    │  → 401 (expired)
+     │                                    │  Worker tries refresh
+     │                                    │  → FAILS (old refresh token invalid)
+```
+
 ### The Problem
 
 Claude Code uses OAuth tokens stored in `~/.claude/.credentials.json`. These tokens:
-- Have a limited lifespan (access_token expires, refresh_token can also expire)
-- Are rotated when refreshed, but sometimes fail to refresh automatically
-- When expired, the dashboard's cron job fails to fetch usage data from Anthropic
+- Have a limited lifespan (~8-12 hours for access_token)
+- **Refresh tokens are single-use** - once used, the old one is invalidated
+- When Claude CLI refreshes, it doesn't notify the Worker
+- Worker's cached refresh token becomes permanently invalid
 
 ### Symptoms
-- Dashboard shows stale data (last updated timestamp doesn't change)
+- Dashboard shows "The void stares back" error
 - Worker logs show 401 errors or "invalid_grant" errors
-- `sync-credentials.sh` fails with auth errors
+- Local tokens are valid but KV tokens are stale
+- Running `sync-credentials` fixes it temporarily
+
+### Diagnosis Commands
+```bash
+# Compare local vs KV tokens
+echo "=== LOCAL ===" && cat ~/.claude/.credentials.json | jq '{expires: (.claudeAiOauth.expiresAt/1000 | strftime("%Y-%m-%d %H:%M")), token: .claudeAiOauth.accessToken[0:30]}'
+
+# Check KV tokens (requires wrangler)
+export PATH="$HOME/.nvm/versions/node/v24.11.1/bin:$PATH"
+wrangler kv key get oauth_tokens --namespace-id=4b55acfc702f4698b53c5f1219edf63d --remote | jq '{expires: (.expiresAt/1000 | strftime("%Y-%m-%d %H:%M")), token: .accessToken[0:30]}'
+
+# If tokens differ, that's the problem - sync needed
+```
 
 ### Current Workaround
 
-1. **Manual re-auth:** Open Claude Code CLI (`claude`) and let it refresh the token
-2. **Re-sync to KV:** Run `bin/sync-credentials` to push new tokens to Cloudflare KV
-3. **Verify:** Check dashboard updates within 1-2 minutes
+1. **Run sync-credentials:** `cd ~/projects/claude-watch && ./bin/sync-credentials`
+2. **Verify:** `curl https://claude-watch.trevorju32.workers.dev/api/usage | jq .success`
+
+If that fails with auth error, the local token is also stale:
+1. **Force re-auth:** Open Claude Code CLI (`claude`) - using it refreshes the token
+2. **Then sync:** `./bin/sync-credentials`
 
 ### Files Involved
-- `~/.claude/.credentials.json` - Local token storage
+- `~/.claude/.credentials.json` - Local token storage (source of truth)
 - `bin/sync-credentials` - Script to sync tokens to Cloudflare KV
+- `worker/src/lib/anthropic.js` - Token refresh logic in Worker
 - `worker/src/cron/poll.js` - Cron that fetches usage using stored tokens
-- `worker/src/lib/auth.js` - Token retrieval and refresh logic
 
-### Long-term Fix Options
+### Long-term Fix Options (Priority Order)
 
-1. **Proactive refresh cron** - Daily cron that refreshes tokens before expiration
-2. **Token health check** - Worker endpoint that validates token and alerts if failing
-3. **Auto-refresh on 401** - Worker retries with refresh_token when access_token fails
-4. **Longer-lived tokens** - Investigate if Anthropic offers extended token lifetimes
+1. **Hook-based auto-sync (IMPLEMENTED 2026-01-05)** - Stop hook syncs credentials every 5 minutes
+   - Added to `~/.claude/hooks/stop-hook.sh`
+   - Rate-limited via `/tmp/claude-creds-synced` marker file
+   - Runs in background, non-blocking
+   - Should prevent most desync issues during active Claude usage
+
+2. **Local crontab sync** - Sync every 4 hours (before 8-hour expiry)
+   ```bash
+   0 */4 * * * $HOME/projects/claude-watch/bin/sync-credentials >/dev/null 2>&1
+   ```
+   - Pros: Simple, reliable, covers idle periods
+   - Cons: Machine must be on
+   - **Consider adding this as backup for periods when not actively using Claude**
+
+3. **Worker-side token health check** - Endpoint that validates tokens and sends Telegram alert
+   - Pros: Proactive alerting
+   - Cons: Still requires manual sync
+
+4. **Single source of truth** - Worker ONLY uses tokens, never caches
+   - Requires architectural change to always read from KV
+   - Complex: Would need to sync CLI → KV on every refresh
 
 ### Quick Reference Commands
 ```bash
-# Check current token status
-cat ~/.claude/.credentials.json | jq '.expires_at'
-
-# Re-authenticate (opens browser)
-claude
+# Check current token status (local)
+cat ~/.claude/.credentials.json | jq '.claudeAiOauth.expiresAt' | xargs -I{} date -d @$(({}/1000))
 
 # Sync to Cloudflare KV
 cd ~/projects/claude-watch && ./bin/sync-credentials
+
+# Test if Worker tokens work
+curl -s https://claude-watch.trevorju32.workers.dev/api/usage | jq .success
 
 # Check worker logs for errors
 wrangler tail --format=pretty

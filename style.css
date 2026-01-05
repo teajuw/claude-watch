@@ -417,6 +417,22 @@ body {
     color: var(--bg-dark);
 }
 
+.action-btn.sync-btn {
+    border-color: var(--status-high);
+    color: var(--status-high);
+    animation: pulse-sync 1.5s ease-in-out infinite;
+}
+
+.action-btn.sync-btn:hover {
+    background: var(--status-high);
+    color: var(--bg-dark);
+}
+
+@keyframes pulse-sync {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
 .session-btn {
     border-color: var(--status-medium);
     color: var(--status-medium);
