@@ -731,33 +731,49 @@ function updateChart(history, range) {
         }
     });
 
-    // For past slots with no data, default to 0 (not null) so the line is continuous
-    // Future slots stay null so they don't plot
+    // For slots with no data:
+    // - 5-hour: gaps mean idle time (0%) - reset every 5 hours
+    // - 7-day: should carry forward last known value (cumulative)
+    // - Future slots stay null so they don't plot
+    let runningSevenDay = null;
     slots.forEach(slot => {
         if (slot.time > now) {
             // Future: don't plot
             slot.fiveHour = null;
             slot.sevenDay = null;
         } else {
-            // Past: if no data, assume 0% usage (idle)
-            if (slot.fiveHour === null) slot.fiveHour = 0;
-            if (slot.sevenDay === null) slot.sevenDay = 0;
+            // Track running 7-day value
+            if (slot.sevenDay !== null) {
+                runningSevenDay = slot.sevenDay;
+            }
+
+            // 5-hour gaps = idle (0%)
+            if (slot.fiveHour === null) {
+                slot.fiveHour = 0;
+            }
+
+            // 7-day gaps = carry forward last known value
+            if (slot.sevenDay === null && runningSevenDay !== null) {
+                slot.sevenDay = runningSevenDay;
+            }
         }
     });
 
-    // Extend the last known value to "now" for better readability
-    // Find the current hour slot and ensure it has the latest data
-    if (slotMode === '24h' && history.length > 0) {
+    // Extend to current time with latest data
+    if (history.length > 0) {
         const latestData = history[history.length - 1];
-        const nowHourKey = now.toISOString().slice(0, 13);
-        const currentSlot = slots.find(slot => slot.hourKey === nowHourKey);
-        if (currentSlot && currentSlot.time <= now) {
-            // Use latest known values for current hour if not already set from exact match
-            if (latestData.five_hour?.utilization !== undefined) {
-                currentSlot.fiveHour = latestData.five_hour.utilization;
-            }
-            if (latestData.seven_day?.utilization !== undefined) {
-                currentSlot.sevenDay = latestData.seven_day.utilization;
+
+        // For 24h mode, find current hour slot
+        if (slotMode === '24h') {
+            const nowHourKey = now.toISOString().slice(0, 13);
+            const currentSlot = slots.find(slot => slot.hourKey === nowHourKey);
+            if (currentSlot && currentSlot.time <= now) {
+                if (latestData.five_hour?.utilization !== undefined) {
+                    currentSlot.fiveHour = latestData.five_hour.utilization;
+                }
+                if (latestData.seven_day?.utilization !== undefined) {
+                    currentSlot.sevenDay = latestData.seven_day.utilization;
+                }
             }
         }
     }
@@ -1285,6 +1301,359 @@ function updateChartWithProjection(history, range, projectionMode) {
 }
 
 // =============================================================================
+// Logs Tab
+// =============================================================================
+
+let logsData = [];
+let logsPaused = false;
+let logsOffset = 0;
+let logsLastId = 0;
+let logsRefreshInterval = null;
+const LOGS_PAGE_SIZE = 50;
+const LOGS_REFRESH_MS = 10000; // 10 seconds
+
+async function fetchLogs(append = false) {
+    if (CONFIG.localMode) return;
+    if (logsPaused && append) return;
+
+    try {
+        const params = new URLSearchParams();
+
+        // Filters
+        const project = document.getElementById('logs-filter-project')?.value;
+        const agent = document.getElementById('logs-filter-agent')?.value;
+        const type = document.getElementById('logs-filter-type')?.value;
+        const range = document.getElementById('logs-filter-range')?.value || '24h';
+        const search = document.getElementById('logs-search')?.value;
+
+        if (project) params.set('project', project);
+        if (agent) params.set('agent', agent);
+        if (type) params.set('type', type);
+        if (search) params.set('search', search);
+
+        // Calculate time range
+        const now = new Date();
+        let since;
+        if (range === '1h') {
+            since = new Date(now - 60 * 60 * 1000);
+        } else if (range === '24h') {
+            since = new Date(now - 24 * 60 * 60 * 1000);
+        } else if (range === '7d') {
+            since = new Date(now - 7 * 24 * 60 * 60 * 1000);
+        }
+        if (since) params.set('since', since.toISOString());
+
+        // Pagination
+        params.set('limit', LOGS_PAGE_SIZE);
+        if (append) {
+            params.set('offset', logsOffset);
+        } else {
+            logsOffset = 0;
+        }
+
+        const response = await fetch(`${CONFIG.workerUrl}/api/logs?${params}`);
+        if (!response.ok) {
+            console.error('Failed to fetch logs:', response.status);
+            return;
+        }
+
+        const result = await response.json();
+        const data = result.data || {};
+        const newLogs = data.logs || [];
+
+        if (append) {
+            logsData = [...logsData, ...newLogs];
+        } else {
+            logsData = newLogs;
+        }
+
+        logsOffset = logsData.length;
+
+        // Check for new logs (compare first log ID)
+        const hadNewLogs = !append && newLogs.length > 0 && logsLastId > 0 && newLogs[0].id > logsLastId;
+
+        if (newLogs.length > 0) {
+            logsLastId = newLogs[0].id;
+        }
+
+        renderLogs(hadNewLogs ? newLogs[0].id : null);
+        updateLogsSummary(data.aggregates);
+        updateLogsFiltersFromAPI(data.filters);
+
+        // Show notification for new logs
+        if (hadNewLogs && !append) {
+            showLogsNotification(newLogs.filter(l => l.id > logsLastId).length || 1);
+        }
+
+        // Show/hide load more button
+        const loadMoreEl = document.getElementById('logs-load-more');
+        if (loadMoreEl) {
+            loadMoreEl.style.display = data.pagination?.has_more ? 'block' : 'none';
+        }
+
+    } catch (error) {
+        console.error('Failed to fetch logs:', error);
+    }
+}
+
+function renderLogs(highlightId = null) {
+    const container = document.getElementById('logs-stream');
+    if (!container) return;
+
+    if (logsData.length === 0) {
+        container.innerHTML = '<div class="logs-empty">No logs yet. Activity will appear here as hooks fire.</div>';
+        return;
+    }
+
+    const searchTerm = document.getElementById('logs-search')?.value?.toLowerCase() || '';
+
+    container.innerHTML = logsData.map((log, idx) => {
+        const isNew = highlightId && log.id >= highlightId;
+        const time = formatLogTime(log.timestamp);
+        const type = log.event_type || 'unknown';
+        const agent = log.agent_id || '';
+        const project = log.project || '';
+        const summary = log.summary || generateLogSummary(log);
+        const inputTokens = log.input_tokens || 0;
+        const outputTokens = log.output_tokens || 0;
+
+        const isMatch = searchTerm && (
+            summary.toLowerCase().includes(searchTerm) ||
+            agent.toLowerCase().includes(searchTerm) ||
+            project.toLowerCase().includes(searchTerm)
+        );
+
+        const highlightedSummary = searchTerm
+            ? summary.replace(new RegExp(`(${escapeRegex(searchTerm)})`, 'gi'), '<mark>$1</mark>')
+            : summary;
+
+        return `
+            <div class="log-entry ${isMatch ? 'search-match' : ''} ${isNew ? 'new-entry' : ''}" onclick="toggleLogDetail(${idx})" data-idx="${idx}">
+                <div class="log-entry-header">
+                    <span class="log-time">${time}</span>
+                    <span class="log-type ${type}">${type}</span>
+                    ${agent ? `<span class="log-agent">${agent}</span>` : ''}
+                    ${project ? `<span class="log-project">${project}</span>` : ''}
+                    <span class="log-summary">${highlightedSummary}</span>
+                    ${inputTokens || outputTokens ? `
+                        <span class="log-tokens">
+                            <span class="input">↓${formatTokens(inputTokens)}</span>
+                            <span class="output">↑${formatTokens(outputTokens)}</span>
+                        </span>
+                    ` : ''}
+                </div>
+                <div class="log-entry-detail">
+                    ${renderLogDetail(log)}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderLogDetail(log) {
+    const details = [];
+
+    if (log.id) details.push({ label: 'ID', value: log.id });
+    if (log.timestamp) details.push({ label: 'Timestamp', value: new Date(log.timestamp).toLocaleString() });
+    if (log.session_id) details.push({ label: 'Session', value: log.session_id });
+    if (log.model) details.push({ label: 'Model', value: log.model });
+    if (log.input_tokens) details.push({ label: 'Input', value: `${log.input_tokens.toLocaleString()} tokens` });
+    if (log.output_tokens) details.push({ label: 'Output', value: `${log.output_tokens.toLocaleString()} tokens` });
+    if (log.duration_ms) details.push({ label: 'Duration', value: `${(log.duration_ms / 1000).toFixed(1)}s` });
+    if (log.metadata) {
+        try {
+            const meta = typeof log.metadata === 'string' ? JSON.parse(log.metadata) : log.metadata;
+            Object.entries(meta).forEach(([k, v]) => {
+                details.push({ label: k, value: typeof v === 'object' ? JSON.stringify(v) : v });
+            });
+        } catch {}
+    }
+
+    return details.map(d => `
+        <div class="log-detail-row">
+            <span class="log-detail-label">${d.label}:</span>
+            <span class="log-detail-value">${d.value}</span>
+        </div>
+    `).join('');
+}
+
+function toggleLogDetail(idx) {
+    const entry = document.querySelector(`.log-entry[data-idx="${idx}"]`);
+    if (entry) {
+        entry.classList.toggle('expanded');
+    }
+}
+
+function generateLogSummary(log) {
+    const type = log.event_type;
+    const tokens = (log.input_tokens || 0) + (log.output_tokens || 0);
+
+    switch (type) {
+        case 'response':
+            return tokens > 0 ? `${formatTokens(tokens)} tokens used` : 'Response received';
+        case 'start':
+            return 'Session started';
+        case 'stop':
+            return 'Session ended';
+        case 'commit':
+            return log.summary || 'Code committed';
+        case 'sync':
+            return 'Credentials synced';
+        case 'error':
+            return log.summary || 'Error occurred';
+        case 'alert':
+            return log.summary || 'Alert triggered';
+        default:
+            return log.summary || type || 'Activity';
+    }
+}
+
+function formatLogTime(isoString) {
+    if (!isoString) return '--:--';
+    const date = new Date(isoString);
+    return date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZone: CONFIG.timezone,
+    });
+}
+
+function updateLogsSummary(aggregates) {
+    const eventCountEl = document.getElementById('logs-event-count');
+    const totalTokensEl = document.getElementById('logs-total-tokens');
+    const projectCountEl = document.getElementById('logs-project-count');
+    const agentCountEl = document.getElementById('logs-agent-count');
+
+    if (aggregates) {
+        if (eventCountEl) eventCountEl.textContent = aggregates.total_events || 0;
+        if (totalTokensEl) totalTokensEl.textContent = formatTokens(aggregates.total_tokens || 0);
+    } else {
+        if (eventCountEl) eventCountEl.textContent = logsData.length;
+        const totalTokens = logsData.reduce((sum, log) =>
+            sum + (log.input_tokens || 0) + (log.output_tokens || 0), 0);
+        if (totalTokensEl) totalTokensEl.textContent = formatTokens(totalTokens);
+    }
+
+    const projects = new Set(logsData.map(l => l.project).filter(Boolean));
+    if (projectCountEl) projectCountEl.textContent = projects.size;
+
+    const agents = new Set(logsData.map(l => l.agent_id).filter(Boolean));
+    if (agentCountEl) agentCountEl.textContent = agents.size;
+}
+
+function updateLogsFiltersFromAPI(filters) {
+    // Populate project filter from API
+    const projectSelect = document.getElementById('logs-filter-project');
+    if (projectSelect && filters?.projects) {
+        const currentValue = projectSelect.value;
+        const options = ['<option value="">All</option>'];
+        filters.projects.forEach(p => {
+            options.push(`<option value="${p}" ${p === currentValue ? 'selected' : ''}>${p}</option>`);
+        });
+        projectSelect.innerHTML = options.join('');
+    }
+
+    // Populate agent filter from API
+    const agentSelect = document.getElementById('logs-filter-agent');
+    if (agentSelect && filters?.agents) {
+        const currentValue = agentSelect.value;
+        const options = ['<option value="">All</option>'];
+        filters.agents.forEach(a => {
+            options.push(`<option value="${a}" ${a === currentValue ? 'selected' : ''}>${a}</option>`);
+        });
+        agentSelect.innerHTML = options.join('');
+    }
+}
+
+function toggleLogsPause() {
+    logsPaused = !logsPaused;
+    const btn = document.getElementById('logs-pause-btn');
+    const indicator = document.getElementById('logs-live-indicator');
+
+    if (btn) {
+        btn.textContent = logsPaused ? '[ ▶ resume ]' : '[ ⏸ pause ]';
+        btn.classList.toggle('paused', logsPaused);
+    }
+
+    if (indicator) {
+        indicator.textContent = logsPaused ? 'PAUSED' : 'LIVE';
+        indicator.classList.toggle('paused', logsPaused);
+    }
+
+    // Stop/start auto-refresh based on pause state
+    if (logsPaused) {
+        stopLogsAutoRefresh();
+    } else {
+        startLogsAutoRefresh();
+    }
+}
+
+function startLogsAutoRefresh() {
+    if (logsRefreshInterval) return;
+    logsRefreshInterval = setInterval(() => {
+        if (!logsPaused) {
+            fetchLogs();
+        }
+    }, LOGS_REFRESH_MS);
+}
+
+function stopLogsAutoRefresh() {
+    if (logsRefreshInterval) {
+        clearInterval(logsRefreshInterval);
+        logsRefreshInterval = null;
+    }
+}
+
+function showLogsNotification(count) {
+    // Remove existing notification
+    const existing = document.querySelector('.logs-notification');
+    if (existing) existing.remove();
+
+    const notification = document.createElement('div');
+    notification.className = 'logs-notification';
+    notification.innerHTML = `<span>↑ ${count} new log${count > 1 ? 's' : ''}</span>`;
+    notification.onclick = () => {
+        notification.remove();
+        // Scroll to top of logs
+        const stream = document.getElementById('logs-stream');
+        if (stream) stream.scrollTop = 0;
+    };
+
+    const streamSection = document.querySelector('.logs-stream-section');
+    if (streamSection) {
+        streamSection.insertBefore(notification, streamSection.querySelector('.logs-stream'));
+    }
+
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => notification.remove(), 5000);
+}
+
+function loadMoreLogs() {
+    fetchLogs(true);
+}
+
+function escapeRegex(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Keyboard shortcut for search
+document.addEventListener('keydown', (e) => {
+    // Ctrl+F or Cmd+F when on logs tab
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        const logsTab = document.getElementById('tab-logs');
+        if (logsTab && logsTab.classList.contains('active')) {
+            e.preventDefault();
+            const searchInput = document.getElementById('logs-search');
+            if (searchInput) {
+                searchInput.focus();
+                searchInput.select();
+            }
+        }
+    }
+});
+
+// =============================================================================
 // Tab Switching
 // =============================================================================
 
@@ -1299,9 +1668,15 @@ function switchTab(tabName) {
         content.classList.toggle('active', content.id === `tab-${tabName}`);
     });
 
-    // Fetch agents data when switching to agents tab
+    // Fetch data when switching tabs
     if (tabName === 'agents') {
         fetchAgentsData();
+        stopLogsAutoRefresh();
+    } else if (tabName === 'logs') {
+        fetchLogs();
+        if (!logsPaused) startLogsAutoRefresh();
+    } else {
+        stopLogsAutoRefresh();
     }
 
     // Update URL hash for bookmarking
@@ -1779,8 +2154,8 @@ function init() {
 
     // Handle URL hash for tab switching
     const hash = window.location.hash.replace('#', '');
-    if (hash === 'agents') {
-        switchTab('agents');
+    if (hash === 'agents' || hash === 'logs') {
+        switchTab(hash);
     }
 
     // History range select handler
@@ -1863,6 +2238,35 @@ function init() {
                 closeAgentDetail(); // Hide detail when range changes
             } catch (error) {
                 console.error('Failed to update agents:', error);
+            }
+        });
+    }
+
+    // Logs filter handlers
+    const logsFilterProject = document.getElementById('logs-filter-project');
+    const logsFilterAgent = document.getElementById('logs-filter-agent');
+    const logsFilterType = document.getElementById('logs-filter-type');
+    const logsFilterRange = document.getElementById('logs-filter-range');
+    const logsSearch = document.getElementById('logs-search');
+
+    [logsFilterProject, logsFilterAgent, logsFilterType, logsFilterRange].forEach(el => {
+        if (el) {
+            el.addEventListener('change', () => fetchLogs());
+        }
+    });
+
+    // Debounced search
+    let searchTimeout;
+    if (logsSearch) {
+        logsSearch.addEventListener('input', () => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                renderLogs(); // Re-render with search highlighting
+            }, 200);
+        });
+        logsSearch.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                fetchLogs(); // Full fetch on Enter
             }
         });
     }

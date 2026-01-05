@@ -1,0 +1,58 @@
+#!/bin/bash
+# setup-auto-sync - Set up automatic credential syncing when computer is on
+#
+# This creates a cron job that syncs credentials every 4 hours while your
+# computer is running. The Cloudflare Worker polls Anthropic 24/7, but needs
+# fresh tokens periodically. This script ensures tokens stay in sync.
+
+set -e
+
+CLAUDE_WATCH_DIR="${CLAUDE_WATCH_DIR:-$HOME/projects/claude-watch}"
+SYNC_SCRIPT="$CLAUDE_WATCH_DIR/bin/sync-credentials"
+LOG_FILE="$CLAUDE_WATCH_DIR/logs/auto-sync.log"
+
+# Ensure log directory exists
+mkdir -p "$CLAUDE_WATCH_DIR/logs"
+
+echo "╔════════════════════════════════════════════╗"
+echo "║  Claude Watch - Auto-Sync Setup            ║"
+echo "╚════════════════════════════════════════════╝"
+echo ""
+
+# Check if sync-credentials exists
+if [ ! -x "$SYNC_SCRIPT" ]; then
+    echo "ERROR: sync-credentials not found at $SYNC_SCRIPT"
+    exit 1
+fi
+
+# Create the cron entry
+# Runs every 4 hours (at minute 0)
+CRON_ENTRY="0 */4 * * * $SYNC_SCRIPT >> $LOG_FILE 2>&1"
+
+# Check if cron entry already exists
+if crontab -l 2>/dev/null | grep -qF "sync-credentials"; then
+    echo "Existing cron entry found. Updating..."
+    # Remove old entry and add new one
+    (crontab -l 2>/dev/null | grep -vF "sync-credentials"; echo "$CRON_ENTRY") | crontab -
+else
+    echo "Adding new cron entry..."
+    (crontab -l 2>/dev/null; echo "$CRON_ENTRY") | crontab -
+fi
+
+echo ""
+echo "✓ Cron job installed!"
+echo ""
+echo "Schedule: Every 4 hours (0:00, 4:00, 8:00, 12:00, 16:00, 20:00)"
+echo "Log file: $LOG_FILE"
+echo ""
+echo "Current crontab:"
+crontab -l 2>/dev/null | grep -F "sync-credentials" || echo "(none found)"
+echo ""
+echo "How it works:"
+echo "  1. Your computer runs sync-credentials every 4 hours when ON"
+echo "  2. This keeps the Worker's tokens fresh"
+echo "  3. Worker polls Anthropic 24/7 using those tokens"
+echo "  4. When computer is OFF, Worker uses cached tokens"
+echo ""
+echo "To remove: crontab -e and delete the sync-credentials line"
+echo "To sync now: $SYNC_SCRIPT"

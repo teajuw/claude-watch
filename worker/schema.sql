@@ -90,6 +90,27 @@ CREATE TABLE IF NOT EXISTS rate_limit_events (
 );
 CREATE INDEX IF NOT EXISTS idx_rate_limit_timestamp ON rate_limit_events(timestamp);
 
+-- Activity logs (unified event stream)
+CREATE TABLE IF NOT EXISTS logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp TEXT NOT NULL,
+    event_type TEXT NOT NULL,          -- response, start, stop, commit, error, sync, alert
+    agent_id TEXT,                     -- nullable for system events
+    project TEXT,
+    session_id TEXT,
+    input_tokens INTEGER DEFAULT 0,
+    output_tokens INTEGER DEFAULT 0,
+    summary TEXT,                      -- short description, max 200 chars
+    model TEXT,
+    duration_ms INTEGER DEFAULT 0,
+    metadata TEXT                      -- JSON blob for extra data
+);
+CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON logs(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_logs_project ON logs(project, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_logs_agent ON logs(agent_id, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_logs_session ON logs(session_id);
+CREATE INDEX IF NOT EXISTS idx_logs_type ON logs(event_type);
+
 -- Insert default config
 INSERT OR IGNORE INTO config (key, value) VALUES ('thresholds', '[50, 75, 90]');
 INSERT OR IGNORE INTO config (key, value) VALUES ('reminder_minutes', '15');
