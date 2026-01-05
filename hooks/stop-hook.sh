@@ -50,8 +50,8 @@ session_id=$(echo "$input" | jq -r '.session_id // "unknown"')
 stats_file="/tmp/claude-stats-${session_id}.json"
 last_file="/tmp/claude-last-${session_id}.json"
 
-# Debug logging (write to volume so we can inspect from outside)
-DEBUG_LOG="/mnt/claude-data/hook-debug.log"
+# Debug logging (write to /tmp for both local and container access)
+DEBUG_LOG="/tmp/claude-hook-debug.log"
 [ "$DEBUG" = "1" ] && echo "[stop-hook] $(date) session=$session_id stats_exists=$([ -f \"$stats_file\" ] && echo yes || echo no) WORKER_URL=$WORKER_URL" >> "$DEBUG_LOG"
 
 # Exit if statusline hasn't written yet

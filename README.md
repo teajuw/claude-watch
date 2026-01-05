@@ -191,6 +191,38 @@ See [BACKLOG.md](BACKLOG.md) for planned features:
 
 The polling script automatically refreshes expired tokens. When running in GitHub Actions, you may need to periodically update the secrets if the refresh token changes.
 
+## Hooks Architecture
+
+Claude Watch uses hooks to track activity in real-time:
+
+### Local Usage
+Hooks are stored in `~/.claude/hooks/` and configured in `~/.claude/settings.json`:
+- `statusline.sh` - Runs every 300ms, writes stats to `/tmp/claude-stats-{session}.json`
+- `stop-hook.sh` - Fires after each response, posts to `/api/logs`, `/api/agent/heartbeat`, and sends Telegram notifications
+
+### Docker Sandbox Usage (`claude-sandbox`)
+
+**IMPORTANT**: `docker sandbox` mounts your host `~/.claude/` directory. This means:
+- Settings are read from **host** `~/.claude/settings.json`, NOT from `/mnt/claude-data/settings.json`
+- Hooks run from **host** `~/.claude/hooks/`, NOT from `/mnt/claude-data/hooks/`
+- The `/mnt/claude-data/` volume is only used for: `agent-id`, `telegram.conf`, and container-specific data
+
+**When updating hooks, sync to both locations:**
+```bash
+# Update repo hooks
+vim ~/projects/claude-watch/hooks/stop-hook.sh
+
+# Sync to active location (used by both local and sandbox)
+cp ~/projects/claude-watch/hooks/*.sh ~/.claude/hooks/
+```
+
+The `claude-sandbox` script still writes to `/mnt/claude-data/` for:
+- `agent-id` file (read by statusline for agent tracking)
+- `telegram.conf` (fallback for container env vars)
+- `settings.json` with `bypassPermissionsModeAccepted: true`
+
+But the actual hook execution uses the host's `~/.claude/hooks/` directory.
+
 ## License
 
 MIT - Do whatever you want with it.
