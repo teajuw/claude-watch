@@ -9,6 +9,7 @@ import { handleHistory } from './api/history';
 import { handleUsageLog, handleProjectsSummary, handleProjectsHistory, handleProjectsDetails, handleTokensSummary, handleCostsSummary } from './api/projects';
 import { handleAgentHeartbeat, handleAgentsList, handleAgentDetails, handleAgentHistory, handleAgentsDetails, handleAgentsSummary } from './api/agents';
 import { handleGetLogs, handlePostLog } from './api/logs';
+import { handleDebugState, handleResetAlerts } from './api/debug';
 import { handleTokenGet, handleTokenUpdate } from './api/tokens';
 import { runCron } from './cron/poll';
 import { handleCors, corsHeaders, errorResponse } from './utils/cors';
@@ -131,6 +132,18 @@ export default {
           }
           if (request.method === 'POST') {
             return handlePostLog(request, env);
+          }
+          break;
+
+        case '/api/debug/state':
+          if (request.method === 'GET') {
+            return handleDebugState(request, env);
+          }
+          break;
+
+        case '/api/debug/reset-alerts':
+          if (request.method === 'POST') {
+            return handleResetAlerts(request, env);
           }
           break;
 

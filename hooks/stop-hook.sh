@@ -116,6 +116,96 @@ if [ $delta_input -gt 0 ] || [ $delta_output -gt 0 ]; then
       \"output_tokens\": $delta_output
     }" > /dev/null 2>&1 &
 
+  # Activity log (for logs tab) with quips
+  total_tokens=$((delta_input + delta_output))
+
+  # Log quips - context-aware snark
+  QUIPS_SMALL=(
+    "A modest nibble."
+    "Tokens well spent. Probably."
+    "The machine hums."
+    "Another day, another prompt."
+    "Pocket change."
+  )
+  QUIPS_MEDIUM=(
+    "Now we're cooking."
+    "The meter notices."
+    "Steady consumption detected."
+    "Claude is earning its keep."
+    "Moderate ambition."
+  )
+  QUIPS_LARGE=(
+    "That's a chunky one."
+    "Someone's feeling ambitious."
+    "The tokens flow like wine."
+    "Big prompt energy."
+    "Opus felt that."
+  )
+  QUIPS_HUGE=(
+    "Absolute unit of a response."
+    "The meter screams."
+    "Did you need all those tokens?"
+    "Claude went full novelist."
+    "RIP your rate limit."
+  )
+  QUIPS_CODE_ADD=(
+    "Lines go brrr."
+    "The codebase grows."
+    "Fresh code, hot off the press."
+    "More lines, more problems?"
+    "Shipping features."
+  )
+  QUIPS_CODE_DELETE=(
+    "The great purge."
+    "Less is more. Allegedly."
+    "Code deletion is a feature."
+    "Trimming the fat."
+    "Negative lines shipped."
+  )
+  QUIPS_CODE_CHURN=(
+    "Refactor mode engaged."
+    "Churning butter... er, code."
+    "The eternal rewrite."
+    "Two steps forward, one step back."
+    "Evolution in progress."
+  )
+
+  # Pick quip based on context
+  if [ $delta_lines_added -gt 50 ] && [ $delta_lines_removed -gt 50 ]; then
+    quip="${QUIPS_CODE_CHURN[$((RANDOM % ${#QUIPS_CODE_CHURN[@]}))]}"
+  elif [ $delta_lines_added -gt 100 ]; then
+    quip="${QUIPS_CODE_ADD[$((RANDOM % ${#QUIPS_CODE_ADD[@]}))]}"
+  elif [ $delta_lines_removed -gt 50 ]; then
+    quip="${QUIPS_CODE_DELETE[$((RANDOM % ${#QUIPS_CODE_DELETE[@]}))]}"
+  elif [ $total_tokens -gt 50000 ]; then
+    quip="${QUIPS_HUGE[$((RANDOM % ${#QUIPS_HUGE[@]}))]}"
+  elif [ $total_tokens -gt 10000 ]; then
+    quip="${QUIPS_LARGE[$((RANDOM % ${#QUIPS_LARGE[@]}))]}"
+  elif [ $total_tokens -gt 3000 ]; then
+    quip="${QUIPS_MEDIUM[$((RANDOM % ${#QUIPS_MEDIUM[@]}))]}"
+  else
+    quip="${QUIPS_SMALL[$((RANDOM % ${#QUIPS_SMALL[@]}))]}"
+  fi
+
+  summary="${total_tokens} tokens"
+  [ $delta_lines_added -gt 0 ] && summary="$summary, +${delta_lines_added}"
+  [ $delta_lines_removed -gt 0 ] && summary="$summary, -${delta_lines_removed}"
+  summary="$summary | $quip"
+
+  curl -s -X POST "${WORKER_URL}/api/logs" \
+    -H "Content-Type: application/json" \
+    -d "{
+      \"event_type\": \"response\",
+      \"agent_id\": \"$agent_id\",
+      \"project\": \"$project\",
+      \"session_id\": \"$session_id\",
+      \"input_tokens\": $delta_input,
+      \"output_tokens\": $delta_output,
+      \"model\": \"$model_id\",
+      \"duration_ms\": $delta_duration_ms,
+      \"summary\": \"$summary\"
+    }" > /dev/null 2>&1 &
+
   # Save for next delta
   cp "$stats_file" "$last_file"
 fi

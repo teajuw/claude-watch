@@ -81,20 +81,32 @@ export async function checkThresholds(env, usage) {
 async function checkFiveHourThresholds(env, usage) {
   const alertsSent = await getState(env.DB, 'five_hour_alerts') || [];
   const lastUtil = await getState(env.DB, 'five_hour_last_util') || 0;
+  const lastResetsAt = await getState(env.DB, 'five_hour_resets_at') || null;
 
   const currentUtil = usage.five_hour?.utilization ?? 0;
   const resetsAt = usage.five_hour?.resets_at;
   const countdown = formatCountdown(resetsAt);
 
-  // Check for window reset (usage dropped significantly)
-  if (lastUtil > RESET_DROP_THRESHOLD && currentUtil < lastUtil - RESET_DROP_THRESHOLD) {
-    console.log(`5-hour reset detected: ${lastUtil}% -> ${currentUtil}%`);
+  // Check for window reset - either resets_at changed OR usage dropped significantly
+  const windowChanged = resetsAt && lastResetsAt && resetsAt !== lastResetsAt;
+  const usageDropped = lastUtil > RESET_DROP_THRESHOLD && currentUtil < lastUtil - RESET_DROP_THRESHOLD;
 
-    const quip = getRandomQuip(RESET_QUIPS);
-    const message = `5 hour tokens reset\n\n${quip}`;
+  if (windowChanged || usageDropped) {
+    console.log(`5-hour reset detected: ${lastUtil}% -> ${currentUtil}% (window changed: ${windowChanged})`);
 
-    await sendTelegram(env, message);
+    // Only send reset notification if we were actually using tokens
+    if (lastUtil > 20) {
+      const quip = getRandomQuip(RESET_QUIPS);
+      const message = `5 hour tokens reset\n\n${quip}`;
+      await sendTelegram(env, message);
+    }
+
     await setState(env.DB, 'five_hour_alerts', []);
+  }
+
+  // Always track the current resets_at for window change detection
+  if (resetsAt) {
+    await setState(env.DB, 'five_hour_resets_at', resetsAt);
   }
 
   // Check thresholds
