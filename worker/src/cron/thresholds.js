@@ -87,12 +87,15 @@ async function checkFiveHourThresholds(env, usage) {
   const resetsAt = usage.five_hour?.resets_at;
   const countdown = formatCountdown(resetsAt);
 
-  // Check for window reset - either resets_at changed OR usage dropped significantly
-  const windowChanged = resetsAt && lastResetsAt && resetsAt !== lastResetsAt;
-  const usageDropped = lastUtil > RESET_DROP_THRESHOLD && currentUtil < lastUtil - RESET_DROP_THRESHOLD;
+  // Check for window reset - resets_at changed significantly means new window
+  // The new resets_at should be at least 4 hours later than old one (not just a few seconds drift)
+  const lastResetTime = lastResetsAt ? new Date(lastResetsAt).getTime() : 0;
+  const currentResetTime = resetsAt ? new Date(resetsAt).getTime() : 0;
+  const fourHoursMs = 4 * 60 * 60 * 1000;
+  const windowChanged = currentResetTime > lastResetTime + fourHoursMs;
 
-  if (windowChanged || usageDropped) {
-    console.log(`5-hour reset detected: ${lastUtil}% -> ${currentUtil}% (window changed: ${windowChanged})`);
+  if (windowChanged) {
+    console.log(`5-hour window reset detected: ${lastUtil}% -> ${currentUtil}%`);
 
     // Only send reset notification if we were actually using tokens
     if (lastUtil > 20) {
@@ -102,10 +105,14 @@ async function checkFiveHourThresholds(env, usage) {
     }
 
     await setState(env.DB, 'five_hour_alerts', []);
+    // Update last_util immediately to prevent usageDropped from firing next minute
+    await setState(env.DB, 'five_hour_last_util', currentUtil);
+    await setState(env.DB, 'five_hour_resets_at', resetsAt);
+    return; // Exit early - don't check thresholds on reset tick
   }
 
-  // Always track the current resets_at for window change detection
-  if (resetsAt) {
+  // Track resets_at for window change detection
+  if (resetsAt && !lastResetsAt) {
     await setState(env.DB, 'five_hour_resets_at', resetsAt);
   }
 
