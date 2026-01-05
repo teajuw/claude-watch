@@ -531,9 +531,10 @@ function updateChart(history, range) {
         windowEnd = roundToNearest15Min(fiveHourReset || new Date(now.getTime() + 5 * 60 * 60 * 1000));
         slotMode = 'hourly';
     } else if (range === '30d') {
-        // Monthly view: show last 30 days with daily slots
-        // Start from 30 days ago, end at today
-        windowStart = startOfDayPST(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000));
+        // Monthly view: align to calendar month (billing cycle)
+        // Start from 1st of current month, end at today
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        windowStart = startOfDayPST(monthStart);
         windowEnd = startOfDayPST(now);
         slotMode = 'monthly';
     } else {
@@ -559,13 +560,14 @@ function updateChart(history, range) {
             });
         }
     } else if (slotMode === 'monthly') {
-        // Monthly view: create slots for each day (31 slots for full month)
-        for (let d = 0; d <= 30; d++) {
+        // Monthly view: create slots for each day from 1st to today
+        const daysInView = Math.ceil((windowEnd - windowStart) / (24 * 60 * 60 * 1000)) + 1;
+        for (let d = 0; d < daysInView; d++) {
             const slotTime = new Date(windowStart.getTime() + d * 24 * 60 * 60 * 1000);
             if (slotTime > windowEnd) break;
             slots.push({
                 time: slotTime,
-                label: formatMonthDay(slotTime), // Shorter format for 30 days
+                label: formatMonthDay(slotTime), // Shorter format: "1/5"
                 dayKey: getPSTDayKey(slotTime),
                 fiveHour: null,
                 sevenDay: null,
