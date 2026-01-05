@@ -1,29 +1,35 @@
 #!/bin/bash
 # Claude Watch Stop Hook
 # Fires after each Claude response
-# Reads from temp file written by statusline, sends to Worker + Telegram
+# Reads stats from statusline, sends to Worker + Telegram
 
-# Source env vars if not already set (for local usage)
-CLAUDE_WATCH_DIR="${CLAUDE_WATCH_DIR:-$HOME/projects/claude-watch}"
-[ -f "$CLAUDE_WATCH_DIR/.env" ] && source "$CLAUDE_WATCH_DIR/.env"
+# Stats directory: /mnt/claude-data/stats (sandbox) or ~/.claude/stats (host)
+if [ -d "/mnt/claude-data" ]; then
+  STATS_DIR="/mnt/claude-data/stats"
+  # Load config from file (env vars don't persist in sandbox)
+  [ -f "/mnt/claude-data/telegram.conf" ] && source /mnt/claude-data/telegram.conf
+else
+  STATS_DIR="$HOME/.claude/stats"
+  # Load env vars from .env file
+  CLAUDE_WATCH_DIR="${CLAUDE_WATCH_DIR:-$HOME/projects/claude-watch}"
+  [ -f "$CLAUDE_WATCH_DIR/.env" ] && source "$CLAUDE_WATCH_DIR/.env"
+fi
 
-# Fallback to hardcoded worker URL (for container usage where env might not persist)
+# Fallback worker URL
 WORKER_URL="${WORKER_URL:-https://claude-watch.trevorju32.workers.dev}"
 
-# Debug flag - set to 1 to enable logging
-DEBUG=1
+# Support both TELEGRAM_CHAT_ID and TELEGRAM_USER_ID (legacy)
+TELEGRAM_CHAT_ID="${TELEGRAM_CHAT_ID:-$TELEGRAM_USER_ID}"
 
 # Token sync - runs in background, only if credentials are newer than last sync
 CREDS_FILE="$HOME/.claude/.credentials.json"
 SYNC_MARKER="/tmp/claude-watch-token-sync"
 if [ -f "$CREDS_FILE" ] && [ -n "$API_SECRET" ]; then
-  # Only sync if credentials file is newer than our last sync (or first time)
   if [ ! -f "$SYNC_MARKER" ] || [ "$CREDS_FILE" -nt "$SYNC_MARKER" ]; then
     (
       ACCESS_TOKEN=$(jq -r '.claudeAiOauth.accessToken' "$CREDS_FILE" 2>/dev/null)
       REFRESH_TOKEN=$(jq -r '.claudeAiOauth.refreshToken' "$CREDS_FILE" 2>/dev/null)
       EXPIRES_AT=$(jq -r '.claudeAiOauth.expiresAt' "$CREDS_FILE" 2>/dev/null)
-
       if [ -n "$ACCESS_TOKEN" ] && [ "$ACCESS_TOKEN" != "null" ]; then
         curl -s -X POST "${WORKER_URL}/api/tokens/update" \
           -H "Authorization: Bearer $API_SECRET" \
@@ -35,24 +41,13 @@ if [ -f "$CREDS_FILE" ] && [ -n "$API_SECRET" ]; then
     ) &
   fi
 fi
-# Support both TELEGRAM_CHAT_ID and TELEGRAM_USER_ID (legacy)
-TELEGRAM_CHAT_ID="${TELEGRAM_CHAT_ID:-$TELEGRAM_USER_ID}"
-
-# For container mode: try reading from config file if env vars aren't set
-if [ -z "$TELEGRAM_BOT_TOKEN" ] && [ -f "/mnt/claude-data/telegram.conf" ]; then
-  source /mnt/claude-data/telegram.conf
-fi
 
 # Read hook input from stdin
 input=$(cat)
 session_id=$(echo "$input" | jq -r '.session_id // "unknown"')
 
-stats_file="/tmp/claude-stats-${session_id}.json"
-last_file="/tmp/claude-last-${session_id}.json"
-
-# Debug logging (write to /tmp for both local and container access)
-DEBUG_LOG="/tmp/claude-hook-debug.log"
-[ "$DEBUG" = "1" ] && echo "[stop-hook] $(date) session=$session_id stats_exists=$([ -f \"$stats_file\" ] && echo yes || echo no) WORKER_URL=$WORKER_URL" >> "$DEBUG_LOG"
+stats_file="$STATS_DIR/claude-stats-${session_id}.json"
+last_file="$STATS_DIR/claude-last-${session_id}.json"
 
 # Exit if statusline hasn't written yet
 [ ! -f "$stats_file" ] && exit 0
@@ -64,8 +59,6 @@ curr_input=$(echo "$current" | jq -r '.input_tokens // 0')
 curr_output=$(echo "$current" | jq -r '.output_tokens // 0')
 project=$(echo "$current" | jq -r '.project // "unknown"')
 agent_id=$(echo "$current" | jq -r '.agent_id // "local"')
-
-# Extract new fields for enhanced tracking
 model_id=$(echo "$current" | jq -r '.model_id // "unknown"')
 duration_ms=$(echo "$current" | jq -r '.duration_ms // 0')
 lines_added=$(echo "$current" | jq -r '.lines_added // 0')
@@ -99,7 +92,7 @@ delta_duration_ms=$((duration_ms - last_duration_ms))
 
 # POST to Worker (if new usage)
 if [ $delta_input -gt 0 ] || [ $delta_output -gt 0 ]; then
-  # Agent heartbeat (for agents dashboard) - with all fields
+  # Agent heartbeat
   curl -s -X POST "${WORKER_URL}/api/agent/heartbeat" \
     -H "Content-Type: application/json" \
     -d "{
@@ -119,7 +112,7 @@ if [ $delta_input -gt 0 ] || [ $delta_output -gt 0 ]; then
       \"timestamp\": \"$(date -Iseconds)\"
     }" > /dev/null 2>&1 &
 
-  # Project usage log (for projects pie chart)
+  # Project usage log
   curl -s -X POST "${WORKER_URL}/api/usage/log" \
     -H "Content-Type: application/json" \
     -d "{
@@ -129,61 +122,17 @@ if [ $delta_input -gt 0 ] || [ $delta_output -gt 0 ]; then
       \"output_tokens\": $delta_output
     }" > /dev/null 2>&1 &
 
-  # Activity log (for logs tab) with quips
+  # Activity log with quips
   total_tokens=$((delta_input + delta_output))
 
-  # Log quips - context-aware snark
-  QUIPS_SMALL=(
-    "A modest nibble."
-    "Tokens well spent. Probably."
-    "The machine hums."
-    "Another day, another prompt."
-    "Pocket change."
-  )
-  QUIPS_MEDIUM=(
-    "Now we're cooking."
-    "The meter notices."
-    "Steady consumption detected."
-    "Claude is earning its keep."
-    "Moderate ambition."
-  )
-  QUIPS_LARGE=(
-    "That's a chunky one."
-    "Someone's feeling ambitious."
-    "The tokens flow like wine."
-    "Big prompt energy."
-    "Opus felt that."
-  )
-  QUIPS_HUGE=(
-    "Absolute unit of a response."
-    "The meter screams."
-    "Did you need all those tokens?"
-    "Claude went full novelist."
-    "RIP your rate limit."
-  )
-  QUIPS_CODE_ADD=(
-    "Lines go brrr."
-    "The codebase grows."
-    "Fresh code, hot off the press."
-    "More lines, more problems?"
-    "Shipping features."
-  )
-  QUIPS_CODE_DELETE=(
-    "The great purge."
-    "Less is more. Allegedly."
-    "Code deletion is a feature."
-    "Trimming the fat."
-    "Negative lines shipped."
-  )
-  QUIPS_CODE_CHURN=(
-    "Refactor mode engaged."
-    "Churning butter... er, code."
-    "The eternal rewrite."
-    "Two steps forward, one step back."
-    "Evolution in progress."
-  )
+  QUIPS_SMALL=("A modest nibble." "Tokens well spent. Probably." "The machine hums." "Another day, another prompt." "Pocket change.")
+  QUIPS_MEDIUM=("Now we're cooking." "The meter notices." "Steady consumption detected." "Claude is earning its keep." "Moderate ambition.")
+  QUIPS_LARGE=("That's a chunky one." "Someone's feeling ambitious." "The tokens flow like wine." "Big prompt energy." "Opus felt that.")
+  QUIPS_HUGE=("Absolute unit of a response." "The meter screams." "Did you need all those tokens?" "Claude went full novelist." "RIP your rate limit.")
+  QUIPS_CODE_ADD=("Lines go brrr." "The codebase grows." "Fresh code, hot off the press." "More lines, more problems?" "Shipping features.")
+  QUIPS_CODE_DELETE=("The great purge." "Less is more. Allegedly." "Code deletion is a feature." "Trimming the fat." "Negative lines shipped.")
+  QUIPS_CODE_CHURN=("Refactor mode engaged." "Churning butter... er, code." "The eternal rewrite." "Two steps forward, one step back." "Evolution in progress.")
 
-  # Pick quip based on context
   if [ $delta_lines_added -gt 50 ] && [ $delta_lines_removed -gt 50 ]; then
     quip="${QUIPS_CODE_CHURN[$((RANDOM % ${#QUIPS_CODE_CHURN[@]}))]}"
   elif [ $delta_lines_added -gt 100 ]; then
@@ -223,7 +172,7 @@ if [ $delta_input -gt 0 ] || [ $delta_output -gt 0 ]; then
   cp "$stats_file" "$last_file"
 fi
 
-# Send Telegram notification - format: project(agent): Claude finished
+# Send Telegram notification
 if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
   curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
     -d chat_id="$TELEGRAM_CHAT_ID" \

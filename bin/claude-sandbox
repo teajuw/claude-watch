@@ -205,7 +205,6 @@ docker run --rm -v "$CLAUDE_DATA_VOLUME:/mnt/claude-data" alpine sh -c 'cat > /m
   "hooks": {
     "Stop": [
       {
-        "matcher": "*",
         "hooks": [
           {
             "type": "command",

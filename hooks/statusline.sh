@@ -1,6 +1,6 @@
 #!/bin/bash
 # Claude Watch Statusline Hook
-# Writes stats to temp file (for stop hook) AND displays status line
+# Writes stats to /mnt/claude-data/stats/ AND displays status line
 # Runs every 300ms during Claude Code sessions
 
 input=$(cat)
@@ -32,11 +32,22 @@ else
   context_pct=0
 fi
 
-# Read AGENT_ID from file (env vars get overridden by sandbox), fallback to "local"
-agent_id=$(cat /mnt/claude-data/agent-id 2>/dev/null || echo "local")
+# Agent ID: from file (sandbox), env var, or "local"
+if [ -f "/mnt/claude-data/agent-id" ]; then
+  agent_id=$(cat /mnt/claude-data/agent-id)
+else
+  agent_id="${AGENT_ID:-local}"
+fi
 
-# Write ALL stats to temp file (for stop hook → dashboard)
-cat > "/tmp/claude-stats-${session_id}.json" << EOF
+# Stats directory: /mnt/claude-data/stats (sandbox) or ~/.claude/stats (host)
+if [ -d "/mnt/claude-data" ]; then
+  STATS_DIR="/mnt/claude-data/stats"
+else
+  STATS_DIR="$HOME/.claude/stats"
+fi
+mkdir -p "$STATS_DIR" 2>/dev/null
+
+cat > "$STATS_DIR/claude-stats-${session_id}.json" << EOF
 {
   "session_id": "$session_id",
   "agent_id": "$agent_id",
@@ -57,5 +68,5 @@ cat > "/tmp/claude-stats-${session_id}.json" << EOF
 }
 EOF
 
-# Display status line for user: [agent] project | Model | in/out tokens | context%
-printf "[%s] %s | %s | %d/%d | %d%%" "$agent_id" "$project" "$model_display" "$input_tokens" "$output_tokens" "$context_pct"
+# Display status line: [agent] project | Model | context%
+printf "[%s] %s | %s | %d%%" "$agent_id" "$project" "$model_display" "$context_pct"
