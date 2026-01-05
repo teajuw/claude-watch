@@ -894,12 +894,10 @@ function updateChartWithProjection(history, range, projectionMode) {
         return;
     }
 
-    // Calculate projections
     const fiveHourData = historyChart.data.datasets[0].data;
     const sevenDayData = historyChart.data.datasets[1].data;
-    const proLimitData = historyChart.data.datasets[2].data;
 
-    // Find last valid data point for each series
+    // Find last valid data point index for each series (this is "now")
     let lastValidFiveHourIdx = -1;
     let lastValidSevenDayIdx = -1;
     for (let i = fiveHourData.length - 1; i >= 0; i--) {
@@ -912,21 +910,17 @@ function updateChartWithProjection(history, range, projectionMode) {
         if (lastValidFiveHourIdx !== -1 && lastValidSevenDayIdx !== -1) break;
     }
 
-    const fiveHourProjected = calculateProjection(fiveHourData, projectionMode, 5);
-    const sevenDayProjected = calculateProjection(sevenDayData, projectionMode, 5);
+    // Count remaining slots after last valid point (these are future slots within the window)
+    const remainingFiveHourSlots = fiveHourData.length - 1 - lastValidFiveHourIdx;
+    const remainingSevenDaySlots = sevenDayData.length - 1 - lastValidSevenDayIdx;
 
-    // Add projected labels
-    const projectedLabels = fiveHourProjected.map((_, i) => `+${i + 1}`);
+    // Calculate projections for remaining slots within the window
+    const fiveHourProjected = calculateProjection(fiveHourData, projectionMode, remainingFiveHourSlots);
+    const sevenDayProjected = calculateProjection(sevenDayData, projectionMode, remainingSevenDaySlots);
 
-    // Pad actual data with nulls for projection zone
-    const paddedFiveHour = [...fiveHourData, ...Array(fiveHourProjected.length).fill(null)];
-    const paddedSevenDay = [...sevenDayData, ...Array(sevenDayProjected.length).fill(null)];
-    // Extend Pro limit line across projection zone
-    const extendedProLimit = [...proLimitData, ...Array(fiveHourProjected.length).fill(PRO_LIMIT_PERCENTAGE)];
-
-    // Create projection data - include last valid point to connect the lines
-    const fiveHourProjData = Array(fiveHourData.length + fiveHourProjected.length).fill(null);
-    const sevenDayProjData = Array(sevenDayData.length + sevenDayProjected.length).fill(null);
+    // Create projection data arrays (same length as original data - no extension)
+    const fiveHourProjData = Array(fiveHourData.length).fill(null);
+    const sevenDayProjData = Array(sevenDayData.length).fill(null);
 
     // Set the last valid actual point to connect the projection line
     if (lastValidFiveHourIdx !== -1) {
@@ -936,21 +930,22 @@ function updateChartWithProjection(history, range, projectionMode) {
         sevenDayProjData[lastValidSevenDayIdx] = sevenDayData[lastValidSevenDayIdx];
     }
 
-    // Add projected values after actual data
+    // Fill in projected values for remaining slots within the window
     for (let i = 0; i < fiveHourProjected.length; i++) {
-        fiveHourProjData[fiveHourData.length + i] = fiveHourProjected[i];
-        sevenDayProjData[sevenDayData.length + i] = sevenDayProjected[i];
+        const idx = lastValidFiveHourIdx + 1 + i;
+        if (idx < fiveHourData.length) {
+            fiveHourProjData[idx] = fiveHourProjected[i];
+        }
+    }
+    for (let i = 0; i < sevenDayProjected.length; i++) {
+        const idx = lastValidSevenDayIdx + 1 + i;
+        if (idx < sevenDayData.length) {
+            sevenDayProjData[idx] = sevenDayProjected[i];
+        }
     }
 
-    // Update labels
-    historyChart.data.labels = [...historyChart.data.labels, ...projectedLabels];
-
-    // Update datasets (0: 5hr, 1: 7day, 2: pro limit)
-    historyChart.data.datasets[0].data = paddedFiveHour;
-    historyChart.data.datasets[1].data = paddedSevenDay;
-    historyChart.data.datasets[2].data = extendedProLimit;
-
     // Add or update projection datasets (indices 3 and 4)
+    // No need to modify labels - projections stay within existing window
     if (historyChart.data.datasets.length === 3) {
         historyChart.data.datasets.push({
             label: '5-Hour Projected',
