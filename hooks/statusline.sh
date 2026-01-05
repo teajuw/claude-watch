@@ -32,19 +32,12 @@ else
   context_pct=0
 fi
 
-# Agent ID: from file (sandbox), env var, or "local"
-if [ -f "/mnt/claude-data/agent-id" ]; then
-  agent_id=$(cat /mnt/claude-data/agent-id)
-else
-  agent_id="${AGENT_ID:-local}"
-fi
+# Agent ID: from env var (set by claude-sandbox), or "local"
+agent_id="${AGENT_ID:-local}"
 
-# Stats directory: /mnt/claude-data/stats (sandbox) or ~/.claude/stats (host)
-if [ -d "/mnt/claude-data" ]; then
-  STATS_DIR="/mnt/claude-data/stats"
-else
-  STATS_DIR="$HOME/.claude/stats"
-fi
+# Stats directory: use ~/.claude/stats always (works in both sandbox and host)
+# The sandbox mounts ~/.claude/ from the host
+STATS_DIR="$HOME/.claude/stats"
 mkdir -p "$STATS_DIR" 2>/dev/null
 
 cat > "$STATS_DIR/claude-stats-${session_id}.json" << EOF
