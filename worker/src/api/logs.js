@@ -193,6 +193,41 @@ export async function handlePostLog(request, env) {
 }
 
 /**
+ * DELETE /api/logs/:id - Delete a specific log entry
+ */
+export async function handleDeleteLog(request, env, id) {
+  try {
+    const logId = parseInt(id);
+    if (isNaN(logId)) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Invalid log ID',
+      }), { status: 400, headers: corsHeaders });
+    }
+
+    const result = await env.DB.prepare(
+      `DELETE FROM logs WHERE id = ?`
+    ).bind(logId).run();
+
+    if (result.changes === 0) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Log not found',
+      }), { status: 404, headers: corsHeaders });
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      message: 'Log deleted',
+    }), { headers: corsHeaders });
+
+  } catch (error) {
+    console.error('Log delete error:', error);
+    return errorResponse(error.message);
+  }
+}
+
+/**
  * Prune old logs (called by cron)
  */
 export async function pruneLogs(env, daysToKeep = 7) {

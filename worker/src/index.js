@@ -8,7 +8,7 @@ import { handleUsage } from './api/usage';
 import { handleHistory } from './api/history';
 import { handleUsageLog, handleProjectsSummary, handleProjectsHistory, handleProjectsDetails, handleTokensSummary, handleCostsSummary } from './api/projects';
 import { handleAgentHeartbeat, handleAgentsList, handleAgentDetails, handleAgentHistory, handleAgentsDetails, handleAgentsSummary } from './api/agents';
-import { handleGetLogs, handlePostLog } from './api/logs';
+import { handleGetLogs, handlePostLog, handleDeleteLog } from './api/logs';
 import { handleDebugState, handleResetAlerts } from './api/debug';
 import { handleTokenGet, handleTokenUpdate } from './api/tokens';
 import { runCron } from './cron/poll';
@@ -37,6 +37,12 @@ export default {
       }
       if (agentMatch && agentMatch[1] !== 'summary' && agentMatch[1] !== 'details' && request.method === 'GET') {
         return handleAgentDetails(request, env, agentMatch[1]);
+      }
+
+      // Handle DELETE /api/logs/:id before switch (needs pattern matching)
+      if (path.startsWith('/api/logs/') && request.method === 'DELETE') {
+        const logId = path.split('/')[3];
+        return handleDeleteLog(request, env, logId);
       }
 
       // API Routes

@@ -228,10 +228,16 @@ SANDBOX_ARGS="$SANDBOX_ARGS -e PROJECT=$PROJECT"
 SANDBOX_ARGS="$SANDBOX_ARGS -e WORKER_URL=$WORKER_URL"
 SANDBOX_ARGS="$SANDBOX_ARGS -e CLAUDE_WATCH_DIR=/mnt/claude-data"
 
+# Mount our data volume at /mnt/claude-data (contains hooks, settings, telegram.conf)
+SANDBOX_ARGS="$SANDBOX_ARGS -v ${CLAUDE_DATA_VOLUME}:/mnt/claude-data"
+
 # Add Telegram env vars if set
 [ -n "$TELEGRAM_BOT_TOKEN" ] && SANDBOX_ARGS="$SANDBOX_ARGS -e TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN"
 [ -n "$TELEGRAM_USER_ID" ] && SANDBOX_ARGS="$SANDBOX_ARGS -e TELEGRAM_CHAT_ID=$TELEGRAM_USER_ID"
 [ -n "$TELEGRAM_CHAT_ID" ] && SANDBOX_ARGS="$SANDBOX_ARGS -e TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID"
+
+# Remove existing sandbox to pick up new volume mount (docker sandbox reuses containers)
+docker sandbox rm "$PROJECT" 2>/dev/null || true
 
 # Run docker sandbox
 if [ -n "$PROMPT" ]; then

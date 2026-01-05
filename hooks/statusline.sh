@@ -35,9 +35,15 @@ fi
 # Agent ID: from env var (set by claude-sandbox), or "local"
 agent_id="${AGENT_ID:-local}"
 
-# Stats directory: use ~/.claude/stats always (works in both sandbox and host)
-# The sandbox mounts ~/.claude/ from the host
-STATS_DIR="$HOME/.claude/stats"
+# Stats directory: /mnt/claude-data/stats (sandbox) or ~/.claude/stats (host)
+if [ -d "/mnt/claude-data/hooks" ]; then
+  STATS_DIR="/mnt/claude-data/stats"
+elif [ -n "$HOME" ]; then
+  STATS_DIR="$HOME/.claude/stats"
+else
+  # Flatpak/VSCode: HOME might be empty, try common paths
+  STATS_DIR="/home/jut/.claude/stats"
+fi
 mkdir -p "$STATS_DIR" 2>/dev/null
 
 cat > "$STATS_DIR/claude-stats-${session_id}.json" << EOF

@@ -3,12 +3,22 @@
 # Fires after each Claude response
 # Reads stats from statusline, sends to Worker + Telegram
 
-# Stats directory: use ~/.claude/stats always (works in both sandbox and host)
-# The sandbox mounts ~/.claude/ from the host
-STATS_DIR="$HOME/.claude/stats"
+# Stats directory: /mnt/claude-data/stats (sandbox) or ~/.claude/stats (host)
+if [ -d "/mnt/claude-data/hooks" ]; then
+  STATS_DIR="/mnt/claude-data/stats"
+elif [ -n "$HOME" ]; then
+  STATS_DIR="$HOME/.claude/stats"
+else
+  # Flatpak/VSCode: HOME might be empty, try common paths
+  STATS_DIR="/home/jut/.claude/stats"
+fi
 
 # Load env vars from .env file
-CLAUDE_WATCH_DIR="${CLAUDE_WATCH_DIR:-$HOME/projects/claude-watch}"
+if [ -n "$HOME" ]; then
+  CLAUDE_WATCH_DIR="${CLAUDE_WATCH_DIR:-$HOME/projects/claude-watch}"
+else
+  CLAUDE_WATCH_DIR="${CLAUDE_WATCH_DIR:-/home/jut/projects/claude-watch}"
+fi
 [ -f "$CLAUDE_WATCH_DIR/.env" ] && source "$CLAUDE_WATCH_DIR/.env"
 
 # Also try loading telegram config from /mnt/claude-data if it exists

@@ -1437,9 +1437,14 @@ function renderLogs(highlightId = null) {
         const type = log.event_type || 'unknown';
         const agent = log.agent_id || '';
         const project = log.project || '';
-        const summary = log.summary || generateLogSummary(log);
         const inputTokens = log.input_tokens || 0;
         const outputTokens = log.output_tokens || 0;
+        const totalTokens = inputTokens + outputTokens;
+
+        // Show useful info: tokens, duration, model (no quips)
+        const duration = log.duration_ms ? `${(log.duration_ms / 1000).toFixed(1)}s` : '';
+        const model = log.model ? log.model.replace('claude-', '').replace('-20251101', '').split('-')[0] : '';
+        const summary = `${totalTokens.toLocaleString()} tok${duration ? ' · ' + duration : ''}${model ? ' · ' + model : ''}`;
 
         const isMatch = searchTerm && (
             summary.toLowerCase().includes(searchTerm) ||
@@ -1472,30 +1477,93 @@ function renderLogs(highlightId = null) {
 }
 
 function renderLogDetail(log) {
-    const details = [];
+    const totalTokens = (log.input_tokens || 0) + (log.output_tokens || 0);
+    const timestamp = new Date(log.timestamp);
+    const timeStr = timestamp.toLocaleString('en-US', {
+        timeZone: CONFIG.timezone,
+        hour12: CONFIG.hour12,
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
 
-    if (log.id) details.push({ label: 'ID', value: log.id });
-    if (log.timestamp) details.push({ label: 'Timestamp', value: new Date(log.timestamp).toLocaleString('en-US', { timeZone: CONFIG.timezone }) });
-    if (log.session_id) details.push({ label: 'Session', value: log.session_id });
-    if (log.model) details.push({ label: 'Model', value: log.model });
-    if (log.input_tokens) details.push({ label: 'Input', value: `${log.input_tokens.toLocaleString()} tokens` });
-    if (log.output_tokens) details.push({ label: 'Output', value: `${log.output_tokens.toLocaleString()} tokens` });
-    if (log.duration_ms) details.push({ label: 'Duration', value: `${(log.duration_ms / 1000).toFixed(1)}s` });
+    // Format model name nicely
+    const modelDisplay = log.model ? log.model.replace('claude-', '').replace('-20251101', '') : 'unknown';
+
+    let html = `
+        <div class="log-detail-section">
+            <div class="log-detail-header">
+                <span class="log-detail-type ${log.event_type || ''}">${log.event_type || 'unknown'}</span>
+                <span class="log-detail-time">${timeStr}</span>
+            </div>
+
+            <div class="log-detail-main">
+                <div class="log-detail-stat">
+                    <span class="stat-value">${totalTokens.toLocaleString()}</span>
+                    <span class="stat-label">tokens</span>
+                </div>
+                <div class="log-detail-stat">
+                    <span class="stat-value">${log.duration_ms ? (log.duration_ms / 1000).toFixed(1) + 's' : '-'}</span>
+                    <span class="stat-label">duration</span>
+                </div>
+                <div class="log-detail-stat">
+                    <span class="stat-value">${modelDisplay}</span>
+                    <span class="stat-label">model</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="log-detail-section">
+            <div class="log-detail-row">
+                <span class="log-detail-label">Project</span>
+                <span class="log-detail-value">${log.project || '-'}</span>
+            </div>
+            <div class="log-detail-row">
+                <span class="log-detail-label">Agent</span>
+                <span class="log-detail-value">${log.agent_id || 'local'}</span>
+            </div>
+            <div class="log-detail-row">
+                <span class="log-detail-label">Session</span>
+                <span class="log-detail-value log-session-id">${log.session_id || '-'}</span>
+            </div>
+        </div>
+
+        <div class="log-detail-section">
+            <div class="log-detail-row">
+                <span class="log-detail-label">Input</span>
+                <span class="log-detail-value">${(log.input_tokens || 0).toLocaleString()} tokens</span>
+            </div>
+            <div class="log-detail-row">
+                <span class="log-detail-label">Output</span>
+                <span class="log-detail-value">${(log.output_tokens || 0).toLocaleString()} tokens</span>
+            </div>
+        </div>
+    `;
+
+    // Add metadata if present
     if (log.metadata) {
         try {
             const meta = typeof log.metadata === 'string' ? JSON.parse(log.metadata) : log.metadata;
-            Object.entries(meta).forEach(([k, v]) => {
-                details.push({ label: k, value: typeof v === 'object' ? JSON.stringify(v) : v });
-            });
+            if (Object.keys(meta).length > 0) {
+                html += `<div class="log-detail-section"><div class="log-detail-row"><span class="log-detail-label">Metadata</span></div>`;
+                Object.entries(meta).forEach(([k, v]) => {
+                    html += `<div class="log-detail-row"><span class="log-detail-label">${k}</span><span class="log-detail-value">${typeof v === 'object' ? JSON.stringify(v) : v}</span></div>`;
+                });
+                html += `</div>`;
+            }
         } catch {}
     }
 
-    return details.map(d => `
-        <div class="log-detail-row">
-            <span class="log-detail-label">${d.label}:</span>
-            <span class="log-detail-value">${d.value}</span>
+    // Delete button
+    html += `
+        <div class="log-detail-actions">
+            <button class="log-delete-btn" onclick="deleteLog(${log.id})">Delete Log</button>
         </div>
-    `).join('');
+    `;
+
+    return html;
 }
 
 function openLogModal(idx) {
@@ -1515,6 +1583,28 @@ function closeLogModal() {
     const overlay = document.getElementById('log-modal-overlay');
     if (overlay) {
         overlay.classList.remove('visible');
+    }
+}
+
+async function deleteLog(logId) {
+    if (!confirm('Delete this log entry?')) return;
+
+    try {
+        const response = await fetch(`${CONFIG.workerUrl}/api/logs/${logId}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            // Remove from local data
+            logsData = logsData.filter(l => l.id !== logId);
+            renderLogs();
+            closeLogModal();
+        } else {
+            alert('Failed to delete log');
+        }
+    } catch (error) {
+        console.error('Delete failed:', error);
+        alert('Failed to delete log');
     }
 }
 
