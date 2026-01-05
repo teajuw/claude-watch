@@ -482,6 +482,11 @@ function formatDayDate(date) {
     });
 }
 
+// Get PST calendar day string for comparison (YYYY-MM-DD in PST)
+function getPSTDayKey(date) {
+    return date.toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+}
+
 function updateChart(history, range) {
     if (!historyChart || !history || history.length === 0) return;
 
@@ -532,29 +537,34 @@ function updateChart(history, range) {
             slots.push({
                 time: slotTime,
                 label: formatDayDate(slotTime),
+                dayKey: getPSTDayKey(slotTime), // PST calendar day for matching
                 fiveHour: null,
                 sevenDay: null,
             });
         }
     }
 
-    // Map history data to slots - find closest slot for each data point
+    // Map history data to slots
     history.forEach(item => {
         const itemTime = new Date(item.timestamp);
         if (itemTime > now) return; // Skip future data
 
-        // Find the best matching slot
         let bestSlot = null;
-        let bestDiff = Infinity;
 
-        for (const slot of slots) {
-            const diff = Math.abs(itemTime - slot.time);
-            // For 5h view, match within 15 min; for 7d view, match within same day
-            const threshold = isHourly ? 15 * 60 * 1000 : 12 * 60 * 60 * 1000;
-            if (diff < bestDiff && diff < threshold) {
-                bestDiff = diff;
-                bestSlot = slot;
+        if (isHourly) {
+            // 5-hour view: find closest slot within 15 min threshold
+            let bestDiff = Infinity;
+            for (const slot of slots) {
+                const diff = Math.abs(itemTime - slot.time);
+                if (diff < bestDiff && diff < 15 * 60 * 1000) {
+                    bestDiff = diff;
+                    bestSlot = slot;
+                }
             }
+        } else {
+            // 7-day view: match by PST calendar day
+            const itemDayKey = getPSTDayKey(itemTime);
+            bestSlot = slots.find(slot => slot.dayKey === itemDayKey);
         }
 
         if (bestSlot) {
