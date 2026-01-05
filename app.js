@@ -95,6 +95,32 @@ const QUIPS = {
     ],
 };
 
+const PROJECTS_QUIPS = [
+    "Where the magic happens. And the bugs.",
+    "Your code kingdoms, ranked by token appetite.",
+    "Some projects just hit different.",
+    "The token trail leads here.",
+    "Every commit has a cost. Literally.",
+    "Project portfolio: expensive but worth it.",
+    "Code is temporary. Token usage is forever.",
+    "Your projects, sorted by how much Claude loves them.",
+    "The sum of all repos.",
+    "Where tokens go to become features.",
+];
+
+const AGENTS_QUIPS = [
+    "The fleet awaits your command.",
+    "Agent swarm status: nominal.",
+    "Distributed intelligence, centralized billing.",
+    "Many hands make light work. Heavy token usage.",
+    "Your digital workforce, reporting for duty.",
+    "Agent orchestra, ready to conduct.",
+    "The more agents, the merrier the token bill.",
+    "Parallel processing, parallel spending.",
+    "One command, many minions.",
+    "Fleet admiral view activated.",
+];
+
 function getQuip(utilization, isIdle = false) {
     let category;
     if (utilization === null || utilization === undefined) {
@@ -336,6 +362,24 @@ function updateQuip(utilization, isIdle = false) {
     const quipEl = document.getElementById('quip');
     if (quipEl) {
         quipEl.textContent = getQuip(utilization, isIdle);
+    }
+}
+
+function getRandomQuip(quips) {
+    return quips[Math.floor(Math.random() * quips.length)];
+}
+
+function updateProjectsQuip() {
+    const quipEl = document.getElementById('projects-quip');
+    if (quipEl) {
+        quipEl.textContent = getRandomQuip(PROJECTS_QUIPS);
+    }
+}
+
+function updateAgentsQuip() {
+    const quipEl = document.getElementById('agents-quip');
+    if (quipEl) {
+        quipEl.textContent = getRandomQuip(AGENTS_QUIPS);
     }
 }
 
@@ -1547,10 +1591,15 @@ function initAgentsPieChart() {
 function updateAgentsPieChart(agents) {
     if (!agentsPieChart) return;
 
+    const legend = document.getElementById('agents-legend');
+
     if (!agents || agents.length === 0) {
         agentsPieChart.data.labels = [];
         agentsPieChart.data.datasets[0].data = [];
         agentsPieChart.update('none');
+        if (legend) {
+            legend.innerHTML = '<div class="legend-empty">No agent data yet</div>';
+        }
         return;
     }
 
@@ -1563,6 +1612,23 @@ function updateAgentsPieChart(agents) {
     agentsPieChart.data.labels = agentData.map(a => a.id);
     agentsPieChart.data.datasets[0].data = agentData.map(a => a.tokens);
     agentsPieChart.update('none');
+
+    // Update legend
+    if (legend) {
+        const total = agentData.reduce((sum, a) => sum + a.tokens, 0);
+        legend.innerHTML = agentData.map((a, i) => {
+            const pct = total > 0 ? ((a.tokens / total) * 100).toFixed(1) : '0.0';
+            const color = PROJECT_COLORS[i % PROJECT_COLORS.length];
+            return `
+                <div class="legend-item">
+                    <span class="legend-color" style="background: ${color}"></span>
+                    <span class="legend-label">${a.id}</span>
+                    <span class="legend-value">${formatTokens(a.tokens)}</span>
+                    <span class="legend-pct">${pct}%</span>
+                </div>
+            `;
+        }).join('');
+    }
 }
 
 // =============================================================================
@@ -1620,6 +1686,11 @@ async function fetchData() {
         updateProjectsPieChart(projects);
         updateProjectsOverview(totals);
         updateProjectsTable(projects);
+        updateProjectsQuip();
+
+        // Update agents tab
+        await fetchAgentsData();
+        updateAgentsQuip();
 
         // Update cost estimates (using actual costs from hooks)
         updateCostEstimates(costs);

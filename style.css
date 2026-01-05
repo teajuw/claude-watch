@@ -1461,14 +1461,3 @@ body {
 .agents-breakdown-section {
     margin-bottom: var(--space-xl);
 }
-
-.agents-chart-container {
-    background: var(--bg-card);
-    border: 1px solid var(--claude-orange-dim);
-    border-radius: 4px;
-    padding: var(--space-lg);
-    min-height: 250px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}

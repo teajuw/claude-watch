@@ -33,7 +33,7 @@ export default {
       if (agentHistoryMatch && request.method === 'GET') {
         return handleAgentHistory(request, env, agentHistoryMatch[1]);
       }
-      if (agentMatch && agentMatch[1] !== 'summary' && request.method === 'GET') {
+      if (agentMatch && agentMatch[1] !== 'summary' && agentMatch[1] !== 'details' && request.method === 'GET') {
         return handleAgentDetails(request, env, agentMatch[1]);
       }
 
