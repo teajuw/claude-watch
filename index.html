@@ -131,6 +131,7 @@
                     <span class="prompt">$</span> ./history --window <select id="history-range" class="range-select">
                         <option value="5h">5-Hour</option>
                         <option value="7d" selected>7-Day</option>
+                        <option value="30d">Monthly</option>
                     </select>
                     <span class="projection-toggle">
                         | PROJECTION: <select id="projection-mode" class="range-select">
@@ -152,7 +153,11 @@
                 <!-- Fleet Overview -->
                 <section class="agents-overview">
                     <div class="section-header">
-                        <span class="prompt">$</span> ./agents --fleet
+                        <span class="prompt">$</span> ./agents --fleet <select id="agents-range" class="range-select">
+                            <option value="24h">24h</option>
+                            <option value="7d" selected>7d</option>
+                            <option value="30d">30d</option>
+                        </select>
                     </div>
                     <div class="fleet-stats">
                         <div class="stat-box">
@@ -160,16 +165,16 @@
                             <div class="stat-label">AGENTS</div>
                         </div>
                         <div class="stat-box">
-                            <div class="stat-value" id="fleet-input-tokens">0</div>
-                            <div class="stat-label">INPUT TOKENS</div>
+                            <div class="stat-value" id="fleet-total-tokens">0</div>
+                            <div class="stat-label">TOTAL TOKENS</div>
                         </div>
                         <div class="stat-box">
-                            <div class="stat-value" id="fleet-output-tokens">0</div>
-                            <div class="stat-label">OUTPUT TOKENS</div>
+                            <div class="stat-value" id="fleet-total-cost">$0</div>
+                            <div class="stat-label">TOTAL COST</div>
                         </div>
                         <div class="stat-box">
-                            <div class="stat-value" id="fleet-messages">0</div>
-                            <div class="stat-label">MESSAGES</div>
+                            <div class="stat-value" id="fleet-total-time">0s</div>
+                            <div class="stat-label">CLAUDE TIME</div>
                         </div>
                     </div>
                 </section>
@@ -184,14 +189,20 @@
                     </div>
                 </section>
 
-                <!-- Agent Breakdown -->
+                <!-- Agent Detail (shown when clicking an agent) -->
+                <section class="agent-detail-section" id="agent-detail" style="display: none;">
+                    <div class="section-header">
+                        <span class="prompt">$</span> ./agents --detail <span id="agent-detail-name">agent</span>
+                        <button class="close-btn" onclick="closeAgentDetail()">[ × ]</button>
+                    </div>
+                    <div class="agent-detail-content" id="agent-detail-content">
+                    </div>
+                </section>
+
+                <!-- Agent Breakdown Pie -->
                 <section class="agents-breakdown-section">
                     <div class="section-header">
-                        <span class="prompt">$</span> ./agents --breakdown <select id="agents-range" class="range-select">
-                            <option value="24h">24h</option>
-                            <option value="7d" selected>7d</option>
-                            <option value="30d">30d</option>
-                        </select>
+                        <span class="prompt">$</span> ./agents --breakdown
                     </div>
                     <div class="agents-chart-container">
                         <canvas id="agents-pie"></canvas>

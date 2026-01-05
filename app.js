@@ -210,7 +210,10 @@ async function fetchUsageHistory(range = '7d') {
         return response.json();
     }
 
-    // Map 5h to 24h for API (we filter client-side to the window)
+    // Map ranges for API
+    // 5h -> 24h (we filter client-side to the 5-hour window)
+    // 7d -> 7d (direct mapping)
+    // 30d -> 30d (monthly view)
     const apiRange = range === '5h' ? '24h' : range;
     const response = await fetch(`${CONFIG.workerUrl}/api/history?range=${apiRange}`);
     if (!response.ok) {
@@ -482,6 +485,15 @@ function formatDayDate(date) {
     });
 }
 
+// Format date as "1/5" (shorter for monthly view)
+function formatMonthDay(date) {
+    return date.toLocaleDateString('en-US', {
+        month: 'numeric',
+        day: 'numeric',
+        timeZone: 'America/Los_Angeles',
+    });
+}
+
 // Get PST calendar day string for comparison (YYYY-MM-DD in PST)
 function getPSTDayKey(date) {
     return date.toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
@@ -511,24 +523,30 @@ function updateChart(history, range) {
     const fiveHourStart = fiveHourReset ? new Date(fiveHourReset - 5 * 60 * 60 * 1000) : new Date(now - 5 * 60 * 60 * 1000);
     const sevenDayStart = sevenDayReset ? new Date(sevenDayReset - 7 * 24 * 60 * 60 * 1000) : new Date(now - 7 * 24 * 60 * 60 * 1000);
 
-    let windowStart, windowEnd, isHourly;
+    let windowStart, windowEnd, slotMode;
 
     if (range === '5h') {
         // 5-hour window: round to 15 min intervals
         windowStart = roundToNearest15Min(fiveHourStart);
         windowEnd = roundToNearest15Min(fiveHourReset || new Date(now.getTime() + 5 * 60 * 60 * 1000));
-        isHourly = true;
+        slotMode = 'hourly';
+    } else if (range === '30d') {
+        // Monthly view: show last 30 days with daily slots
+        // Start from 30 days ago, end at today
+        windowStart = startOfDayPST(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000));
+        windowEnd = startOfDayPST(now);
+        slotMode = 'monthly';
     } else {
         // 7-day window: normalize to PST calendar days (midnight to midnight)
         windowStart = startOfDayPST(sevenDayStart);
         windowEnd = startOfDayPST(sevenDayReset || new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000));
-        isHourly = false;
+        slotMode = 'daily';
     }
 
     // Generate slots for X-axis
     const slots = [];
 
-    if (isHourly) {
+    if (slotMode === 'hourly') {
         // 5-hour window: create slots every 30 minutes (11 slots total)
         const slotInterval = 30 * 60 * 1000; // 30 min
         for (let t = windowStart.getTime(); t <= windowEnd.getTime(); t += slotInterval) {
@@ -536,6 +554,19 @@ function updateChart(history, range) {
             slots.push({
                 time: slotTime,
                 label: formatTime(slotTime),
+                fiveHour: null,
+                sevenDay: null,
+            });
+        }
+    } else if (slotMode === 'monthly') {
+        // Monthly view: create slots for each day (31 slots for full month)
+        for (let d = 0; d <= 30; d++) {
+            const slotTime = new Date(windowStart.getTime() + d * 24 * 60 * 60 * 1000);
+            if (slotTime > windowEnd) break;
+            slots.push({
+                time: slotTime,
+                label: formatMonthDay(slotTime), // Shorter format for 30 days
+                dayKey: getPSTDayKey(slotTime),
                 fiveHour: null,
                 sevenDay: null,
             });
@@ -564,7 +595,7 @@ function updateChart(history, range) {
 
         let bestSlot = null;
 
-        if (isHourly) {
+        if (slotMode === 'hourly') {
             // 5-hour view: find closest slot within 15 min threshold
             let bestDiff = Infinity;
             for (const slot of slots) {
@@ -575,7 +606,7 @@ function updateChart(history, range) {
                 }
             }
         } else {
-            // 7-day view: match by PST calendar day
+            // 7-day or monthly view: match by PST calendar day
             const itemDayKey = getPSTDayKey(itemTime);
             bestSlot = slots.find(slot => slot.dayKey === itemDayKey);
         }
@@ -1176,15 +1207,38 @@ async function fetchAgentsSummary(range = '7d') {
     }
 }
 
+// Store current agents data for detail view
+let currentAgentsData = [];
+
+async function fetchAgentsDetails(range = '7d') {
+    if (CONFIG.localMode) {
+        return { agents: [], totals: {} };
+    }
+
+    try {
+        const response = await fetch(`${CONFIG.workerUrl}/api/agents/details?range=${range}`);
+        if (!response.ok) return { agents: [], totals: {} };
+        const result = await response.json();
+        return result.data || { agents: [], totals: {} };
+    } catch (error) {
+        console.error('Failed to fetch agents details:', error);
+        return { agents: [], totals: {} };
+    }
+}
+
 async function fetchAgentsData() {
     const range = document.getElementById('agents-range')?.value || '7d';
 
-    const [agents, summary] = await Promise.all([
-        fetchAgentsList(),
+    const [agentsDetails, summary] = await Promise.all([
+        fetchAgentsDetails(range),
         fetchAgentsSummary(range),
     ]);
 
-    updateFleetStats(summary.totals);
+    const agents = agentsDetails.agents || [];
+    const totals = agentsDetails.totals || {};
+
+    currentAgentsData = agents;
+    updateFleetStats(totals);
     renderAgentGrid(agents);
     updateAgentsPieChart(summary.agents);
 }
@@ -1195,14 +1249,14 @@ async function fetchAgentsData() {
 
 function updateFleetStats(totals) {
     const countEl = document.getElementById('fleet-agent-count');
-    const inputEl = document.getElementById('fleet-input-tokens');
-    const outputEl = document.getElementById('fleet-output-tokens');
-    const messagesEl = document.getElementById('fleet-messages');
+    const tokensEl = document.getElementById('fleet-total-tokens');
+    const costEl = document.getElementById('fleet-total-cost');
+    const timeEl = document.getElementById('fleet-total-time');
 
     if (countEl) countEl.textContent = totals.agent_count || 0;
-    if (inputEl) inputEl.textContent = formatTokens(totals.total_input || 0);
-    if (outputEl) outputEl.textContent = formatTokens(totals.total_output || 0);
-    if (messagesEl) messagesEl.textContent = totals.message_count || 0;
+    if (tokensEl) tokensEl.textContent = formatTokens(totals.total_tokens || 0);
+    if (costEl) costEl.textContent = `$${(totals.total_cost || 0).toFixed(2)}`;
+    if (timeEl) timeEl.textContent = totals.duration_formatted || '0s';
 }
 
 function getAgentStatusClass(agent) {
@@ -1247,37 +1301,42 @@ function renderAgentGrid(agents) {
         return;
     }
 
-    grid.innerHTML = agents.map(agent => {
-        const statusClass = getAgentStatusClass(agent);
-        const statusLabel = getAgentStatusLabel(agent);
-        const totalTokens = (agent.total_input_tokens || 0) + (agent.total_output_tokens || 0);
-        const linesAdded = agent.total_lines_added || 0;
-        const linesRemoved = agent.total_lines_removed || 0;
+    grid.innerHTML = agents.map((agent, idx) => {
+        // Support both old and new data formats
+        const agentId = agent.id || agent.agent_id;
+        const status = agent.status || 'inactive';
+        const statusClass = `status-${status}`;
+        const statusLabel = status.toUpperCase();
+        const totalTokens = agent.tokens?.total || (agent.total_input_tokens || 0) + (agent.total_output_tokens || 0);
+        const linesAdded = agent.lines?.added || agent.total_lines_added || 0;
+        const linesRemoved = agent.lines?.removed || agent.total_lines_removed || 0;
+        const durationMs = agent.duration_ms || agent.total_duration_ms || 0;
+        const projects = agent.projects || [agent.project || 'unknown'];
 
-        // Calculate velocity (lines changed per hour based on total_duration_ms)
-        const durationHours = (agent.total_duration_ms || 0) / (1000 * 60 * 60);
+        // Calculate velocity (lines changed per hour)
+        const durationHours = durationMs / (1000 * 60 * 60);
         const totalLines = linesAdded + linesRemoved;
         const velocity = durationHours > 0 ? Math.round(totalLines / durationHours) : 0;
 
         return `
-            <div class="agent-card ${statusClass}">
+            <div class="agent-card ${statusClass}" onclick="showAgentDetail(${idx})">
                 <div class="agent-header">
-                    <span class="agent-id">${agent.agent_id}</span>
+                    <span class="agent-id">${agentId}</span>
                     <span class="agent-status ${statusClass}">${statusLabel}</span>
                 </div>
-                <div class="agent-project">${agent.project || 'unknown'}</div>
+                <div class="agent-project">${projects[0]}</div>
                 <div class="agent-stats">
                     <div class="agent-stat">
-                        <span class="stat-label">IN</span>
-                        <span class="stat-value">${formatTokens(agent.total_input_tokens || 0)}</span>
-                    </div>
-                    <div class="agent-stat">
-                        <span class="stat-label">OUT</span>
-                        <span class="stat-value">${formatTokens(agent.total_output_tokens || 0)}</span>
-                    </div>
-                    <div class="agent-stat">
-                        <span class="stat-label">TOTAL</span>
+                        <span class="stat-label">TOKENS</span>
                         <span class="stat-value">${formatTokens(totalTokens)}</span>
+                    </div>
+                    <div class="agent-stat">
+                        <span class="stat-label">COST</span>
+                        <span class="stat-value">$${(agent.cost || 0).toFixed(2)}</span>
+                    </div>
+                    <div class="agent-stat">
+                        <span class="stat-label">TIME</span>
+                        <span class="stat-value">${agent.duration_formatted || '0s'}</span>
                     </div>
                 </div>
                 <div class="agent-meta">
@@ -1293,6 +1352,73 @@ function renderAgentGrid(agents) {
             </div>
         `;
     }).join('');
+}
+
+function showAgentDetail(idx) {
+    const agent = currentAgentsData[idx];
+    if (!agent) return;
+
+    const detailSection = document.getElementById('agent-detail');
+    const nameEl = document.getElementById('agent-detail-name');
+    const contentEl = document.getElementById('agent-detail-content');
+
+    if (!detailSection || !contentEl) return;
+
+    const agentId = agent.id || agent.agent_id;
+    nameEl.textContent = agentId;
+
+    contentEl.innerHTML = `
+        <div class="agent-detail-grid">
+            <div class="agent-detail-stat">
+                <div class="stat-value">${formatTokens(agent.tokens?.input || 0)}</div>
+                <div class="stat-label">Input Tokens</div>
+            </div>
+            <div class="agent-detail-stat">
+                <div class="stat-value">${formatTokens(agent.tokens?.output || 0)}</div>
+                <div class="stat-label">Output Tokens</div>
+            </div>
+            <div class="agent-detail-stat">
+                <div class="stat-value">$${(agent.cost || 0).toFixed(2)}</div>
+                <div class="stat-label">Cost</div>
+            </div>
+            <div class="agent-detail-stat">
+                <div class="stat-value">${agent.duration_formatted || '0s'}</div>
+                <div class="stat-label">Claude Time</div>
+            </div>
+            <div class="agent-detail-stat">
+                <div class="stat-value">+${agent.lines?.added || 0}</div>
+                <div class="stat-label">Lines Added</div>
+            </div>
+            <div class="agent-detail-stat">
+                <div class="stat-value">-${agent.lines?.removed || 0}</div>
+                <div class="stat-label">Lines Removed</div>
+            </div>
+            <div class="agent-detail-stat">
+                <div class="stat-value">${agent.sessions || 0}</div>
+                <div class="stat-label">Sessions</div>
+            </div>
+            <div class="agent-detail-stat">
+                <div class="stat-value">${agent.messages || 0}</div>
+                <div class="stat-label">Messages</div>
+            </div>
+        </div>
+        <div class="agent-projects-list">
+            <div class="label">PROJECTS:</div>
+            <div class="projects">
+                ${(agent.projects || []).map(p => `<span class="project-tag">${p}</span>`).join('')}
+            </div>
+        </div>
+    `;
+
+    detailSection.style.display = 'block';
+    detailSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function closeAgentDetail() {
+    const detailSection = document.getElementById('agent-detail');
+    if (detailSection) {
+        detailSection.style.display = 'none';
+    }
 }
 
 // =============================================================================
@@ -1547,9 +1673,17 @@ function init() {
     if (agentsRangeSelect) {
         agentsRangeSelect.addEventListener('change', async () => {
             try {
-                const summary = await fetchAgentsSummary(agentsRangeSelect.value);
-                updateFleetStats(summary.totals);
+                const [agentsDetails, summary] = await Promise.all([
+                    fetchAgentsDetails(agentsRangeSelect.value),
+                    fetchAgentsSummary(agentsRangeSelect.value),
+                ]);
+                const agents = agentsDetails.agents || [];
+                const totals = agentsDetails.totals || {};
+                currentAgentsData = agents;
+                updateFleetStats(totals);
+                renderAgentGrid(agents);
                 updateAgentsPieChart(summary.agents);
+                closeAgentDetail(); // Hide detail when range changes
             } catch (error) {
                 console.error('Failed to update agents:', error);
             }

@@ -7,7 +7,7 @@
 import { handleUsage } from './api/usage';
 import { handleHistory } from './api/history';
 import { handleUsageLog, handleProjectsSummary, handleProjectsHistory, handleProjectsDetails, handleTokensSummary, handleCostsSummary } from './api/projects';
-import { handleAgentHeartbeat, handleAgentsList, handleAgentDetails, handleAgentHistory, handleAgentsSummary } from './api/agents';
+import { handleAgentHeartbeat, handleAgentsList, handleAgentDetails, handleAgentHistory, handleAgentsDetails, handleAgentsSummary } from './api/agents';
 import { handleTokenUpdate } from './api/tokens';
 import { runCron } from './cron/poll';
 import { handleCors, corsHeaders, errorResponse } from './utils/cors';
@@ -103,6 +103,12 @@ export default {
         case '/api/agents/summary':
           if (request.method === 'GET') {
             return handleAgentsSummary(request, env);
+          }
+          break;
+
+        case '/api/agents/details':
+          if (request.method === 'GET') {
+            return handleAgentsDetails(request, env);
           }
           break;
 

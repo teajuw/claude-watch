@@ -266,6 +266,133 @@ export async function handleAgentHistory(request, env, agentId) {
 }
 
 /**
+ * GET /api/agents/details
+ * Returns comprehensive agent data with projects breakdown
+ */
+export async function handleAgentsDetails(request, env) {
+  try {
+    const url = new URL(request.url);
+    const range = url.searchParams.get('range') || '7d';
+
+    const days = range === '24h' ? 1 : range === '30d' ? 30 : 7;
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+    // Get comprehensive agent stats
+    const agentStats = await env.DB.prepare(`
+      SELECT
+        agent_id,
+        SUM(input_tokens) as total_input,
+        SUM(output_tokens) as total_output,
+        SUM(input_tokens + output_tokens) as total_tokens,
+        SUM(cost_usd) as total_cost,
+        SUM(duration_ms) as total_duration_ms,
+        SUM(lines_added) as total_lines_added,
+        SUM(lines_removed) as total_lines_removed,
+        COUNT(DISTINCT session_id) as session_count,
+        COUNT(DISTINCT project) as project_count,
+        COUNT(*) as message_count,
+        MAX(timestamp) as last_seen,
+        GROUP_CONCAT(DISTINCT project) as projects
+      FROM agent_metrics
+      WHERE timestamp >= ?
+      GROUP BY agent_id
+      ORDER BY last_seen DESC
+    `).bind(cutoff).all();
+
+    // Calculate totals
+    const totals = {
+      agent_count: agentStats.results?.length || 0,
+      total_tokens: 0,
+      total_cost: 0,
+      total_duration_ms: 0,
+      total_lines_added: 0,
+      total_lines_removed: 0,
+      session_count: 0,
+    };
+
+    const agents = (agentStats.results || []).map(a => {
+      totals.total_tokens += a.total_tokens || 0;
+      totals.total_cost += a.total_cost || 0;
+      totals.total_duration_ms += a.total_duration_ms || 0;
+      totals.total_lines_added += a.total_lines_added || 0;
+      totals.total_lines_removed += a.total_lines_removed || 0;
+      totals.session_count += a.session_count || 0;
+
+      // Determine status based on last_seen
+      const lastSeenDate = new Date(a.last_seen);
+      const now = new Date();
+      const diffMinutes = (now - lastSeenDate) / (1000 * 60);
+      let status = 'inactive';
+      if (diffMinutes < 5) status = 'active';
+      else if (diffMinutes < 30) status = 'idle';
+
+      return {
+        id: a.agent_id,
+        tokens: {
+          input: a.total_input || 0,
+          output: a.total_output || 0,
+          total: a.total_tokens || 0,
+        },
+        cost: a.total_cost || 0,
+        duration_ms: a.total_duration_ms || 0,
+        duration_formatted: formatDuration(a.total_duration_ms || 0),
+        lines: {
+          added: a.total_lines_added || 0,
+          removed: a.total_lines_removed || 0,
+          net: (a.total_lines_added || 0) - (a.total_lines_removed || 0),
+        },
+        sessions: a.session_count || 0,
+        messages: a.message_count || 0,
+        projects: a.projects ? a.projects.split(',') : [],
+        project_count: a.project_count || 0,
+        last_seen: a.last_seen,
+        status,
+      };
+    });
+
+    return new Response(JSON.stringify({
+      success: true,
+      data: {
+        agents,
+        totals: {
+          ...totals,
+          duration_formatted: formatDuration(totals.total_duration_ms),
+        },
+      },
+      range,
+      cutoff,
+    }), {
+      headers: corsHeaders,
+    });
+
+  } catch (error) {
+    console.error('Error getting agents details:', error);
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message,
+    }), {
+      status: 500,
+      headers: corsHeaders,
+    });
+  }
+}
+
+// Helper to format duration
+function formatDuration(ms) {
+  if (!ms || ms <= 0) return '0s';
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+
+  if (hours > 0) {
+    return `${hours}h ${minutes % 60}m`;
+  } else if (minutes > 0) {
+    return `${minutes}m ${seconds % 60}s`;
+  }
+  return `${seconds}s`;
+}
+
+/**
  * GET /api/agents/summary
  * Returns fleet-wide summary
  */

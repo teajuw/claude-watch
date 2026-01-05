@@ -975,6 +975,75 @@ body {
     color: var(--text-primary);
 }
 
+/* Agent Detail Panel - reuse project styles */
+.agent-detail-section {
+    margin-bottom: var(--space-xl);
+}
+
+.agent-detail-section .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.agent-detail-content {
+    background: var(--bg-card);
+    border: 1px solid var(--claude-orange-dim);
+    border-radius: 4px;
+    padding: var(--space-lg);
+}
+
+.agent-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: var(--space-md);
+    margin-bottom: var(--space-md);
+}
+
+.agent-detail-stat {
+    text-align: center;
+    padding: var(--space-sm);
+    background: var(--bg-dark);
+    border-radius: 4px;
+}
+
+.agent-detail-stat .stat-value {
+    font-size: 1.25rem;
+    color: var(--claude-orange);
+    font-weight: 600;
+}
+
+.agent-detail-stat .stat-label {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+}
+
+.agent-projects-list {
+    margin-top: var(--space-md);
+}
+
+.agent-projects-list .label {
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    margin-bottom: var(--space-xs);
+}
+
+.agent-projects-list .projects {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+}
+
+.agent-projects-list .project-tag {
+    background: var(--bg-dark);
+    border: 1px solid var(--claude-orange-dim);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    color: var(--text-primary);
+}
+
 /* =============================================================================
    Cost Estimate Section
    ============================================================================= */
