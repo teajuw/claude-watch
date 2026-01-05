@@ -532,10 +532,11 @@ function updateChart(history, range) {
         slotMode = 'hourly';
     } else if (range === '30d') {
         // Monthly view: align to calendar month (billing cycle)
-        // Start from 1st of current month, end at today
+        // Start from 1st of current month, end at last day of month
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0); // Last day of month
         windowStart = startOfDayPST(monthStart);
-        windowEnd = startOfDayPST(now);
+        windowEnd = startOfDayPST(monthEnd);
         slotMode = 'monthly';
     } else {
         // 7-day window: normalize to PST calendar days (midnight to midnight)
