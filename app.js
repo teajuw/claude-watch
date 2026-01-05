@@ -525,7 +525,7 @@ function initChart() {
                         font: { family: 'monospace', size: 10 },
                         maxRotation: 0,
                         autoSkip: true,
-                        maxTicksLimit: 8,
+                        maxTicksLimit: 12, // Show more labels for 24h view
                     },
                 },
                 y: {
@@ -731,13 +731,36 @@ function updateChart(history, range) {
         }
     });
 
-    // Mark future slots as null
+    // For past slots with no data, default to 0 (not null) so the line is continuous
+    // Future slots stay null so they don't plot
     slots.forEach(slot => {
         if (slot.time > now) {
+            // Future: don't plot
             slot.fiveHour = null;
             slot.sevenDay = null;
+        } else {
+            // Past: if no data, assume 0% usage (idle)
+            if (slot.fiveHour === null) slot.fiveHour = 0;
+            if (slot.sevenDay === null) slot.sevenDay = 0;
         }
     });
+
+    // Extend the last known value to "now" for better readability
+    // Find the current hour slot and ensure it has the latest data
+    if (slotMode === '24h' && history.length > 0) {
+        const latestData = history[history.length - 1];
+        const nowHourKey = now.toISOString().slice(0, 13);
+        const currentSlot = slots.find(slot => slot.hourKey === nowHourKey);
+        if (currentSlot && currentSlot.time <= now) {
+            // Use latest known values for current hour if not already set from exact match
+            if (latestData.five_hour?.utilization !== undefined) {
+                currentSlot.fiveHour = latestData.five_hour.utilization;
+            }
+            if (latestData.seven_day?.utilization !== undefined) {
+                currentSlot.sevenDay = latestData.seven_day.utilization;
+            }
+        }
+    }
 
     // Update chart data
     historyChart.data.labels = slots.map(s => s.label);
