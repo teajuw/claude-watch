@@ -89,8 +89,13 @@ delta_lines_added=$((lines_added - last_lines_added))
 delta_lines_removed=$((lines_removed - last_lines_removed))
 delta_duration_ms=$((duration_ms - last_duration_ms))
 
+# Debug logging
+DEBUG_LOG="$STATS_DIR/stop-hook-debug.log"
+echo "[$(date)] session=$session_id delta_in=$delta_input delta_out=$delta_output project=$project agent=$agent_id" >> "$DEBUG_LOG"
+
 # POST to Worker (if new usage)
 if [ $delta_input -gt 0 ] || [ $delta_output -gt 0 ]; then
+  echo "[$(date)] Posting to API: $delta_input in, $delta_output out" >> "$DEBUG_LOG"
   # Agent heartbeat
   curl -s -X POST "${WORKER_URL}/api/agent/heartbeat" \
     -H "Content-Type: application/json" \

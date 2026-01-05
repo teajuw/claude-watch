@@ -111,8 +111,8 @@ async function checkFiveHourThresholds(env, usage) {
     return; // Exit early - don't check thresholds on reset tick
   }
 
-  // Track resets_at for window change detection
-  if (resetsAt && !lastResetsAt) {
+  // Always track resets_at for window change detection
+  if (resetsAt) {
     await setState(env.DB, 'five_hour_resets_at', resetsAt);
   }
 
